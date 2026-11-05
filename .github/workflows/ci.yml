@@ -28,6 +28,8 @@ jobs:
         run: mypy src
       - name: Pytest
         run: pytest
+      - name: Loopback HTTP/TCP/TLS integration
+        run: pytest --run-integration -m integration
       - name: Build and CLI smoke test
         run: |
           pip install build

@@ -141,7 +141,9 @@ def run_cmd(
     console.print(
         f"Hosts={summary['hosts']} findings={summary['total_findings']} "
         f"errors={summary['connection_errors']} "
-        f"coverage={summary['coverage_percent']}% complete={summary['complete']}"
+        f"coverage={summary['coverage_percent']}% complete={summary['complete']} "
+        f"security_failed={summary['security_failed_checks']} "
+        f"inconclusive={summary['inconclusive_checks']}"
     )
     # Un informe incompleto nunca debe pasar como auditoría saludable.
     if not summary["complete"]:

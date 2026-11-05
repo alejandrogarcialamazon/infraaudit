@@ -15,6 +15,7 @@ Diseñada para consultoría, DevOps y SRE. Los checks incluidos consultan estado
 - Checks de red: DNS, TCP, HTTP/HTTPS, latencia, expiración TLS, issuer, SAN
 - Reportes **JSON**, **Markdown** y **HTML**
 - Estados de ejecución y cobertura explícita: completado, no evaluable, error y omitido
+- Separación entre hallazgos de seguridad, problemas operativos y diagnósticos inconclusos
 - Timeouts, logging, validación Pydantic, variables de entorno
 - Empaquetado con `pyproject.toml`, tests (`pytest`), lint (`ruff`), types (`mypy`)
 
@@ -101,6 +102,7 @@ Documentación detallada:
 - [Manual PDF](docs/InfraAudit.pdf)
 - [Evaluación y límites de la beta](docs/review.md)
 - [Mejora 01: estados y cobertura](docs/MEJORA-01-ESTADOS-Y-COBERTURA.md)
+- [Mejora 02: seguridad e inconclusos](docs/MEJORA-02-SEGURIDAD-E-INCONCLUSOS.md)
 
 ## Docker
 

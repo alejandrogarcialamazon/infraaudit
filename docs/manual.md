@@ -141,3 +141,11 @@ cobertura mide checks completados sobre seleccionados, excluyendo omisiones
 explícitas. Una auditoría sin trabajo o con checks no evaluables es incompleta
 y la CLI devuelve 1 tras guardar evidencia. Ver
 [mejora 01](MEJORA-01-ESTADOS-Y-COBERTURA.md) para compatibilidad y pruebas.
+
+## 14. Seguridad y comprobaciones inconclusas
+
+`assessment` separa diagnóstico aprobado, fallo confirmado y resultado inconcluso.
+`Finding.kind` distingue seguridad, operación y hallazgos históricos sin clasificar.
+Los errores del auditor no generan vulnerabilidades HIGH/CRITICAL. La evidencia
+parcial confirmada se conserva incluso si falta completar otra comprobación. Ver
+[mejora 02](MEJORA-02-SEGURIDAD-E-INCONCLUSOS.md) para semántica, reportes y pruebas.

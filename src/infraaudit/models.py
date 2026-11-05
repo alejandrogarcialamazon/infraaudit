@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 
 class Severity(StrEnum):
@@ -45,10 +45,25 @@ class CheckStatus(StrEnum):
     SKIPPED = "skipped"
 
 
+class FindingKind(StrEnum):
+    SECURITY = "security"
+    OPERATIONAL = "operational"
+    UNCLASSIFIED = "unclassified"
+
+
+class Assessment(StrEnum):
+    PASSED = "passed"
+    FAILED = "failed"
+    INCONCLUSIVE = "inconclusive"
+    SKIPPED = "skipped"
+    UNKNOWN = "unknown"
+
+
 class Finding(BaseModel):
     """Hallazgo individual producido por un check."""
 
     severity: Severity
+    kind: FindingKind = FindingKind.UNCLASSIFIED
     check: str
     target: str
     message: str
@@ -68,6 +83,7 @@ class CheckResult(BaseModel):
     category: CheckCategory
     target: str
     success: bool = True
+    legacy: bool = False
     status: CheckStatus = CheckStatus.COMPLETED
     reason: str | None = None
     diagnostic_evidence: dict[str, Any] = Field(default_factory=dict)
@@ -86,6 +102,7 @@ class CheckResult(BaseModel):
                 raise ValueError("Un resultado completed no puede contener error")
         if isinstance(data, dict) and "status" not in data:
             data = dict(data)
+            data["legacy"] = True
             data["status"] = (
                 CheckStatus.ERROR
                 if data.get("success") is False or data.get("error")
@@ -99,6 +116,26 @@ class CheckResult(BaseModel):
         if not self.success and not self.reason:
             self.reason = self.error or "Sin motivo registrado"
         return self
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def assessment(self) -> Assessment:
+        if self.status == CheckStatus.SKIPPED:
+            return Assessment.SKIPPED
+        if self.status != CheckStatus.COMPLETED:
+            return Assessment.INCONCLUSIVE
+        if self.legacy or any(f.kind == FindingKind.UNCLASSIFIED for f in self.findings):
+            return Assessment.UNKNOWN
+        if any(f.severity != Severity.INFO for f in self.findings):
+            return Assessment.FAILED
+        return Assessment.PASSED
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def security_failed(self) -> bool:
+        return any(
+            f.kind == FindingKind.SECURITY and f.severity != Severity.INFO for f in self.findings
+        )
 
 
 class HostResult(BaseModel):
@@ -121,7 +158,7 @@ class HostResult(BaseModel):
 class AuditReport(BaseModel):
     """Informe completo de una corrida de InfraAudit."""
 
-    schema_version: str = "2.0"
+    schema_version: str = "2.1"
     inventory_path: str
     started_at: datetime
     finished_at: datetime | None = None
@@ -163,7 +200,19 @@ class AuditReport(BaseModel):
             and connection_errors == 0
             and self.finished_at is not None
         )
+        assessments = {a.value: 0 for a in Assessment}
+        for result in self.all_results:
+            assessments[result.assessment.value] += 1
+        security_findings = [
+            f
+            for f in self.all_findings
+            if f.kind == FindingKind.SECURITY and f.severity != Severity.INFO
+        ]
         return {
+            "by_assessment": assessments,
+            "security_failed_checks": sum(r.security_failed for r in self.all_results),
+            "security_findings": len(security_findings),
+            "inconclusive_checks": assessments[Assessment.INCONCLUSIVE.value],
             "planned_checks": planned,
             "selected_checks": selected,
             "completed_checks": completed,

@@ -8,7 +8,14 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from infraaudit.config import HostConfig, Inventory, Thresholds
-from infraaudit.models import CheckCategory, CheckResult, CheckStatus, Finding, Severity
+from infraaudit.models import (
+    CheckCategory,
+    CheckResult,
+    CheckStatus,
+    Finding,
+    FindingKind,
+    Severity,
+)
 from infraaudit.ssh import CommandResult, SSHClient
 
 logger = logging.getLogger(__name__)
@@ -78,6 +85,7 @@ class BaseCheck(ABC):
     description: str = ""
     requires_ssh: bool = True
     requires_docker: bool = False
+    finding_kind: FindingKind = FindingKind.OPERATIONAL
 
     def run(self, ctx: CheckContext) -> CheckResult:
         """Ejecuta el check con medición de duración y captura de errores."""
@@ -92,6 +100,7 @@ class BaseCheck(ABC):
                 check_id=self.check_id,
                 category=self.category,
                 target=target,
+                status=CheckStatus.COMPLETED,
                 success=True,
                 findings=findings,
                 duration_ms=round(duration_ms, 2),
@@ -117,17 +126,7 @@ class BaseCheck(ABC):
                 success=False,
                 status=CheckStatus.ERROR,
                 reason=str(exc),
-                findings=[
-                    Finding(
-                        severity=Severity.HIGH,
-                        check=self.check_id,
-                        target=target,
-                        message=f"Error ejecutando check: {exc}",
-                        recommendation="Revisar conectividad, permisos y dependencias del check",
-                        evidence={"error": str(exc)},
-                        category=self.category,
-                    )
-                ],
+                diagnostic_evidence={"exception_type": type(exc).__name__},
                 error=str(exc),
                 duration_ms=round(duration_ms, 2),
             )
@@ -144,9 +143,11 @@ class BaseCheck(ABC):
         message: str,
         recommendation: str = "",
         evidence: dict[str, Any] | None = None,
+        kind: FindingKind | None = None,
     ) -> Finding:
         return Finding(
             severity=severity,
+            kind=kind or self.finding_kind,
             check=self.check_id,
             target=target,
             message=message,

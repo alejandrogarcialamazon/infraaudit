@@ -108,3 +108,11 @@ Lanzar `CheckNotEvaluableError(motivo, evidence=datos)` ante falta de herramient
 permisos o evidencia; nunca sustituir datos desconocidos por cero o estado saludable.
 Un resultado vacío del plugin se considera no evaluable. Ver la
 [mejora 01](MEJORA-01-ESTADOS-Y-COBERTURA.md).
+
+## Clasificación de seguridad
+
+Declarar `finding_kind = FindingKind.SECURITY` en checks que evalúan controles de
+seguridad, o pasar `kind` a `self.finding`. Un error técnico no es un hallazgo de
+seguridad. Conservar hallazgos parciales confirmados mediante el argumento
+`findings` de `CheckNotEvaluableError`. Ver
+[mejora 02](MEJORA-02-SEGURIDAD-E-INCONCLUSOS.md).

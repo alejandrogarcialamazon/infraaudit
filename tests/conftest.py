@@ -81,3 +81,21 @@ def sample_report() -> AuditReport:
             )
         ],
     )
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--run-integration",
+        action="store_true",
+        default=False,
+        help="Ejecutar servicios temporales HTTP/TCP/TLS en loopback",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    if config.getoption("--run-integration"):
+        return
+    skip = pytest.mark.skip(reason="Requiere --run-integration y sockets loopback")
+    for item in items:
+        if "integration" in item.keywords:
+            item.add_marker(skip)

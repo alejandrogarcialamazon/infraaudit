@@ -43,13 +43,18 @@ class MarkdownReporter(BaseReporter):
             f"- Completed: {summary['completed_checks']}; coverage: {summary['coverage_percent']}%",
             f"- Complete: {summary['complete']}",
             "",
-            "| Check | Target | Status | Reason |",
-            "| --- | --- | --- | --- |",
+            f"- Confirmed security findings: {summary['security_findings']}",
+            f"- Security failed checks: {summary['security_failed_checks']}",
+            f"- Inconclusive checks: {summary['inconclusive_checks']}",
+            "",
+            "| Check | Target | Status | Assessment | Security failed | Reason |",
+            "| --- | --- | --- | --- | --- | --- |",
         ]
         for result in report.all_results:
             reason = (result.reason or "").replace("|", "\\|").replace("\n", " ")
             lines.append(
-                f"| {result.check_id} | {result.target} | {result.status.value} | {reason} |"
+                f"| {result.check_id} | {result.target} | {result.status.value} | "
+                f"{result.assessment.value} | {result.security_failed} | {reason} |"
             )
         lines.extend(
             [
@@ -73,27 +78,31 @@ class MarkdownReporter(BaseReporter):
                 continue
             findings = sorted(host.findings, key=lambda f: f.severity_rank(), reverse=True)
             if not findings:
-                lines.append("_Sin hallazgos._")
+                lines.append("_Sin hallazgos confirmados. Consultar estados y cobertura._")
                 lines.append("")
                 continue
-            lines.append("| Severity | Check | Target | Message | Recommendation |")
-            lines.append("| --- | --- | --- | --- | --- |")
+            lines.append("| Severity | Kind | Check | Target | Message | Recommendation |")
+            lines.append("| --- | --- | --- | --- | --- | --- |")
             for f in findings:
                 msg = f.message.replace("|", "\\|")
                 rec = f.recommendation.replace("|", "\\|")
-                lines.append(f"| {f.severity.value} | `{f.check}` | `{f.target}` | {msg} | {rec} |")
+                lines.append(
+                    f"| {f.severity.value} | {f.kind.value} | `{f.check}` | "
+                    f"`{f.target}` | {msg} | {rec} |"
+                )
             lines.append("")
 
         if report.network_results:
             lines.extend(["## Network", ""])
-            lines.append("| Severity | Check | Target | Message | Recommendation |")
-            lines.append("| --- | --- | --- | --- | --- |")
+            lines.append("| Severity | Kind | Check | Target | Message | Recommendation |")
+            lines.append("| --- | --- | --- | --- | --- | --- |")
             for result in report.network_results:
                 for f in result.findings:
                     msg = f.message.replace("|", "\\|")
                     rec = f.recommendation.replace("|", "\\|")
                     lines.append(
-                        f"| {f.severity.value} | `{f.check}` | `{f.target}` | {msg} | {rec} |"
+                        f"| {f.severity.value} | {f.kind.value} | `{f.check}` | "
+                        f"`{f.target}` | {msg} | {rec} |"
                     )
             lines.append("")
 

@@ -54,7 +54,8 @@ class HtmlReporter(BaseReporter):
 
         execution_rows = "".join(
             f"<tr><td>{_esc(r.check_id)}</td><td>{_esc(r.target)}</td>"
-            f"<td>{_esc(r.status.value)}</td><td>{_esc(r.reason or '')}</td></tr>"
+            f"<td>{_esc(r.status.value)}</td><td>{_esc(r.assessment.value)}</td>"
+            f"<td>{r.security_failed}</td><td>{_esc(r.reason or '')}</td></tr>"
             for r in report.all_results
         )
         finished = report.finished_at.isoformat() if report.finished_at else "N/A"
@@ -129,7 +130,11 @@ class HtmlReporter(BaseReporter):
     <p>Planned: {summary["planned_checks"]} · Selected: {summary["selected_checks"]} ·
     Completed: {summary["completed_checks"]} · Coverage: {summary["coverage_percent"]}% ·
     Complete: {summary["complete"]}</p>
-    <table><thead><tr><th>Check</th><th>Target</th><th>Status</th><th>Reason</th></tr></thead>
+    <p>Confirmed security findings: {summary["security_findings"]} ·
+    Security failed checks: {summary["security_failed_checks"]} ·
+    Inconclusive checks: {summary["inconclusive_checks"]}</p>
+    <table><thead><tr><th>Check</th><th>Target</th><th>Status</th>
+    <th>Assessment</th><th>Security failed</th><th>Reason</th></tr></thead>
     <tbody>{execution_rows}</tbody></table>
   </section>
   <h2>Hosts</h2>
@@ -142,7 +147,7 @@ class HtmlReporter(BaseReporter):
 
     def _findings_table(self, findings: list[Finding]) -> str:
         if not findings:
-            return "<p>Sin hallazgos.</p>"
+            return "<p>Sin hallazgos confirmados. Consultar estados y cobertura.</p>"
         rows = []
         ordered = sorted(findings, key=lambda f: f.severity_rank(), reverse=True)
         for f in ordered:
@@ -151,6 +156,7 @@ class HtmlReporter(BaseReporter):
             rows.append(
                 "<tr>"
                 f'<td><span class="sev" style="background:{color}">{sev}</span></td>'
+                f"<td>{_esc(f.kind.value)}</td>"
                 f"<td><code>{_esc(f.check)}</code></td>"
                 f"<td><code>{_esc(f.target)}</code></td>"
                 f"<td>{_esc(f.message)}</td>"
@@ -159,6 +165,6 @@ class HtmlReporter(BaseReporter):
             )
         return (
             "<table><thead><tr>"
-            "<th>Severity</th><th>Check</th><th>Target</th><th>Message</th><th>Recommendation</th>"
+            "<th>Severity</th><th>Kind</th><th>Check</th><th>Target</th><th>Message</th><th>Recommendation</th>"
             "</tr></thead><tbody>" + "".join(rows) + "</tbody></table>"
         )

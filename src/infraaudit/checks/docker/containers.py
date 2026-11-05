@@ -8,7 +8,7 @@ import re
 from typing import Any
 
 from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
-from infraaudit.models import CheckCategory, Finding, Severity
+from infraaudit.models import CheckCategory, Finding, FindingKind, Severity
 
 
 def _docker_json(ctx: CheckContext, command: str) -> Any:
@@ -165,6 +165,7 @@ class DockerResourcesCheck(BaseCheck):
 
 
 class DockerSecurityCheck(BaseCheck):
+    finding_kind = FindingKind.SECURITY
     check_id = "docker.security"
     category = CheckCategory.DOCKER
     description = "Detecta privileged, root y políticas de restart"
@@ -196,7 +197,9 @@ class DockerSecurityCheck(BaseCheck):
                 or not all(isinstance(item.get(k), dict) for k in ("Config", "State", "HostConfig"))
                 or not isinstance(item["HostConfig"].get("Privileged"), bool)
             ):
-                raise CheckNotEvaluableError("docker inspect sin campos de seguridad requeridos")
+                raise CheckNotEvaluableError(
+                    "docker inspect sin campos de seguridad requeridos", findings=findings
+                )
             name = str(item.get("Name") or item.get("Id") or "unknown").lstrip("/")
             host_config = item.get("HostConfig") or {}
             config = item.get("Config") or {}

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
-from infraaudit.models import CheckCategory, Finding, Severity
+from infraaudit.models import CheckCategory, Finding, FindingKind, Severity
 
 
 class GatewayCheck(BaseCheck):
@@ -118,6 +118,7 @@ class NtpCheck(BaseCheck):
 
 
 class ListeningPortsCheck(BaseCheck):
+    finding_kind = FindingKind.SECURITY
     check_id = "linux.listening_ports"
     category = CheckCategory.LINUX
     description = "Inventaría puertos en listening"

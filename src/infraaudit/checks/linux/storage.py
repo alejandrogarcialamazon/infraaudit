@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
-from infraaudit.models import CheckCategory, Finding, Severity
+from infraaudit.models import CheckCategory, Finding, FindingKind, Severity
 
 
 class FilesystemCheck(BaseCheck):
@@ -107,6 +107,7 @@ class InodeCheck(BaseCheck):
 
 
 class MountsCheck(BaseCheck):
+    finding_kind = FindingKind.SECURITY
     check_id = "linux.mounts"
     category = CheckCategory.LINUX
     description = "Lista mounts activos y detecta opciones riesgosas"

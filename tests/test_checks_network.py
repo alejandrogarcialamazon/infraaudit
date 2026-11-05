@@ -37,7 +37,11 @@ def test_dns_mismatch(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     assert findings[0].severity == Severity.HIGH
 
 
-def test_tcp_unreachable() -> None:
+def test_tcp_unreachable(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    def refuse(*args, **kwargs):
+        raise ConnectionRefusedError("connection refused")
+
+    monkeypatch.setattr("socket.create_connection", refuse)
     inventory = Inventory(name="t", thresholds=Thresholds())
     service = TcpService(id="closed", host="127.0.0.1", port=1, timeout=0.5)
     ctx = CheckContext(inventory=inventory, target=service.id, extras={"tcp_service": service})

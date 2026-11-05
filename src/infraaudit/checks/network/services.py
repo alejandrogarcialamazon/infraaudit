@@ -12,7 +12,7 @@ import httpx
 
 from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
 from infraaudit.config import DnsRecord, HttpService, TcpService
-from infraaudit.models import CheckCategory, Finding, Severity
+from infraaudit.models import CheckCategory, Finding, FindingKind, Severity
 
 
 def _resolve_dns(name: str, record_type: str, nameserver: str | None = None) -> list[str]:
@@ -126,6 +126,11 @@ class TcpPortCheck(BaseCheck):
                 )
             ]
         except OSError as exc:
+            if not isinstance(exc, ConnectionRefusedError):
+                raise CheckNotEvaluableError(
+                    f"Conectividad TCP inconclusa: {exc}",
+                    {"host": service.host, "port": service.port, "error": str(exc)},
+                ) from exc
             return [
                 self.finding(
                     severity=Severity.CRITICAL,
@@ -178,6 +183,24 @@ def _tls_info(hostname: str, port: int = 443, timeout: float = 10.0) -> dict[str
     }
 
 
+def _certificate_error(exc: BaseException) -> ssl.SSLCertVerificationError | None:
+    """Reconoce causas tipadas, sin deducir vulnerabilidades del texto del error."""
+    pending = [exc]
+    seen: set[int] = set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if isinstance(current, ssl.SSLCertVerificationError):
+            return current
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None:
+            pending.append(current.__context__)
+    return None
+
+
 class HttpCheck(BaseCheck):
     check_id = "network.http"
     category = CheckCategory.NETWORK
@@ -199,15 +222,23 @@ class HttpCheck(BaseCheck):
                 response = client.request(service.method, service.url)
             elapsed_ms = (time.perf_counter() - started) * 1000
         except httpx.HTTPError as exc:
-            return [
-                self.finding(
-                    severity=Severity.CRITICAL,
-                    target=service.id,
-                    message=f"HTTP falló para {service.url}: {exc}",
-                    recommendation="Verificar disponibilidad del servicio y certificado",
-                    evidence={"url": service.url, "error": str(exc)},
+            cert_error = _certificate_error(exc)
+            if cert_error is not None:
+                findings.append(
+                    self.finding(
+                        severity=Severity.HIGH,
+                        kind=FindingKind.SECURITY,
+                        target=service.id,
+                        message="Certificado rechazado por la política de confianza TLS",
+                        recommendation="Verificar identidad y confianza TLS",
+                        evidence={"verify_code": getattr(cert_error, "verify_code", None)},
+                    )
                 )
-            ]
+            raise CheckNotEvaluableError(
+                f"HTTP no evaluable para {service.url}: {exc}",
+                {"url": service.url, "error": str(exc)},
+                findings=findings,
+            ) from exc
 
         if response.status_code not in service.expected_status:
             findings.append(
@@ -257,6 +288,17 @@ class HttpCheck(BaseCheck):
                 try:
                     tls = _tls_info(parsed_host, port, timeout=service.timeout)
                 except OSError as exc:
+                    if isinstance(exc, ssl.SSLCertVerificationError):
+                        findings.append(
+                            self.finding(
+                                severity=Severity.HIGH,
+                                kind=FindingKind.SECURITY,
+                                target=service.id,
+                                message="Certificado rechazado por la política de confianza TLS",
+                                recommendation="Verificar identidad y confianza TLS",
+                                evidence={"verify_code": getattr(exc, "verify_code", None)},
+                            )
+                        )
                     raise CheckNotEvaluableError(
                         f"No se pudo inspeccionar TLS de {parsed_host}: {exc}",
                         {"error": str(exc)},
@@ -276,6 +318,7 @@ class HttpCheck(BaseCheck):
                     findings.append(
                         self.finding(
                             severity=sev,
+                            kind=FindingKind.SECURITY,
                             target=service.id,
                             message=(
                                 f"TLS {parsed_host}: expira en {days} días "
