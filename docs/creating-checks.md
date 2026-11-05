@@ -99,3 +99,12 @@ hosts:
   - id: web-01
     skip_checks: ["linux.mounts", "docker.volumes"]
 ```
+
+## Evidencia insuficiente
+
+Usar `ctx.command(comando)` para verificar código de salida y datos. Solo usar
+`allow_empty=True` cuando una salida vacía exitosa tenga significado válido.
+Lanzar `CheckNotEvaluableError(motivo, evidence=datos)` ante falta de herramientas,
+permisos o evidencia; nunca sustituir datos desconocidos por cero o estado saludable.
+Un resultado vacío del plugin se considera no evaluable. Ver la
+[mejora 01](MEJORA-01-ESTADOS-Y-COBERTURA.md).

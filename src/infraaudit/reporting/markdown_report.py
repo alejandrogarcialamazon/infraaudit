@@ -37,11 +37,29 @@ class MarkdownReporter(BaseReporter):
             f"| Total findings | {summary['total_findings']} |",
             f"| Connection errors | {summary['connection_errors']} |",
             "",
-            "### Findings by severity",
+            "### Coverage / cobertura",
             "",
-            "| Severity | Count |",
-            "| --- | ---: |",
+            f"- Planned: {summary['planned_checks']}; selected: {summary['selected_checks']}",
+            f"- Completed: {summary['completed_checks']}; coverage: {summary['coverage_percent']}%",
+            f"- Complete: {summary['complete']}",
+            "",
+            "| Check | Target | Status | Reason |",
+            "| --- | --- | --- | --- |",
         ]
+        for result in report.all_results:
+            reason = (result.reason or "").replace("|", "\\|").replace("\n", " ")
+            lines.append(
+                f"| {result.check_id} | {result.target} | {result.status.value} | {reason} |"
+            )
+        lines.extend(
+            [
+                "",
+                "### Findings by severity",
+                "",
+                "| Severity | Count |",
+                "| --- | ---: |",
+            ]
+        )
         for sev in _SEV_ORDER:
             lines.append(f"| {sev.value} | {summary['by_severity'].get(sev.value, 0)} |")
 

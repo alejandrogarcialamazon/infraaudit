@@ -132,3 +132,12 @@ Filtros:
 ## 12. Licencia
 
 MIT.
+
+## 13. Estados de ejecución y cobertura
+
+Los reportes distinguen `completed`, `not_evaluated`, `error` y `skipped`.
+Una comprobación completada puede detectar hallazgos graves. El porcentaje de
+cobertura mide checks completados sobre seleccionados, excluyendo omisiones
+explícitas. Una auditoría sin trabajo o con checks no evaluables es incompleta
+y la CLI devuelve 1 tras guardar evidencia. Ver
+[mejora 01](MEJORA-01-ESTADOS-Y-COBERTURA.md) para compatibilidad y pruebas.

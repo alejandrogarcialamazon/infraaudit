@@ -10,7 +10,7 @@ from infraaudit import __version__
 from infraaudit.checks.base import CheckContext
 from infraaudit.checks.registry import CheckRegistry, build_default_registry
 from infraaudit.config import Inventory, load_inventory
-from infraaudit.models import AuditReport, CheckCategory, CheckResult, HostResult
+from infraaudit.models import AuditReport, CheckCategory, CheckResult, CheckStatus, HostResult
 from infraaudit.ssh import SSHClient, SSHError
 
 logger = logging.getLogger(__name__)
@@ -71,26 +71,36 @@ class AuditEngine:
             address=host.address,
         )
 
-        categories = [
-            c for c in self.categories if c in {CheckCategory.LINUX, CheckCategory.DOCKER}
-        ]
-        if CheckCategory.DOCKER in categories and not host.docker:
-            categories = [c for c in categories if c != CheckCategory.DOCKER]
-
         checks = self.registry.filter(
-            categories=categories,
-            skip=host.skip_checks,
+            categories=[
+                c for c in self.categories if c in {CheckCategory.LINUX, CheckCategory.DOCKER}
+            ]
         )
-        # Filtrar docker checks si el host no tiene docker habilitado
-        checks = [c for c in checks if not (c.requires_docker and not host.docker)]
-        if not checks:
+        selected = []
+        for check in checks:
+            reason = None
+            if check.check_id in host.skip_checks:
+                reason = "Omitido por skip_checks"
+            elif check.requires_docker and not host.docker:
+                reason = "Docker deshabilitado en el inventario"
+            if reason:
+                host_result.check_results.append(
+                    CheckResult(
+                        check_id=check.check_id,
+                        category=check.category,
+                        target=host.id,
+                        status=CheckStatus.SKIPPED,
+                        reason=reason,
+                    )
+                )
+            else:
+                selected.append(check)
+        if not selected:
             return host_result
 
         try:
             with SSHClient(host) as ssh:
-                for check in checks:
-                    if not check.requires_ssh:
-                        continue
+                for check in selected:
                     ctx = CheckContext(
                         inventory=self.inventory,
                         host=host,
@@ -102,7 +112,18 @@ class AuditEngine:
         except SSHError as exc:
             logger.error("Conexión fallida a %s: %s", host.id, exc)
             host_result.connection_error = str(exc)
-
+            recorded = {r.check_id for r in host_result.check_results}
+            for check in selected:
+                if check.check_id not in recorded:
+                    host_result.check_results.append(
+                        CheckResult(
+                            check_id=check.check_id,
+                            category=check.category,
+                            target=host.id,
+                            status=CheckStatus.NOT_EVALUATED,
+                            reason=str(exc),
+                        )
+                    )
         return host_result
 
     def _run_network_checks(self) -> list[CheckResult]:

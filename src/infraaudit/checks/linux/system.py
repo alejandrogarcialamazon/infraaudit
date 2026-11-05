@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from infraaudit.checks.base import BaseCheck, CheckContext
+import math
+
+from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
 from infraaudit.models import CheckCategory, Finding, Severity
 
 
@@ -13,7 +15,7 @@ class HostnameCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("hostname")
+        result = ctx.command("hostname")
         hostname = result.output or "unknown"
         return [
             self.finding(
@@ -32,7 +34,7 @@ class DistributionCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run(
+        result = ctx.command(
             "cat /etc/os-release 2>/dev/null || cat /etc/redhat-release 2>/dev/null"
         )
         pretty = "unknown"
@@ -42,6 +44,8 @@ class DistributionCheck(BaseCheck):
                 break
             if line and "=" not in line:
                 pretty = line.strip()
+        if not pretty or pretty == "unknown":
+            raise CheckNotEvaluableError("No se pudo identificar la distribución")
         return [
             self.finding(
                 severity=Severity.INFO,
@@ -59,7 +63,7 @@ class KernelCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("uname -r")
+        result = ctx.command("uname -r")
         kernel = result.output or "unknown"
         return [
             self.finding(
@@ -78,10 +82,12 @@ class UptimeCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("cat /proc/uptime")
+        result = ctx.command("cat /proc/uptime")
         seconds = 0.0
         if result.ok and result.output:
             seconds = float(result.output.split()[0])
+        if not math.isfinite(seconds) or seconds < 0:
+            raise CheckNotEvaluableError("Uptime inválido")
         days = seconds / 86400
         severity = Severity.INFO
         recommendation = ""
@@ -107,12 +113,16 @@ class CpuCheck(BaseCheck):
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
         # Snapshot read-only via /proc/stat delta approximation with top batch
-        result = ctx.ssh.run(
+        result = ctx.command(
             "grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}'"
         )
-        nproc = ctx.ssh.run("nproc")
-        cores = int(nproc.output) if nproc.ok and nproc.output.isdigit() else 1
+        nproc = ctx.command("nproc")
+        if not nproc.output.isdigit() or int(nproc.output) < 1:
+            raise CheckNotEvaluableError("Número de CPU inválido")
+        cores = int(nproc.output)
         usage = float(result.output) if result.ok and result.output else 0.0
+        if not math.isfinite(usage) or not 0 <= usage <= 100:
+            raise CheckNotEvaluableError("Porcentaje de CPU inválido")
         thr = ctx.thresholds
         if usage >= thr.cpu_crit_percent:
             severity = Severity.CRITICAL
@@ -141,7 +151,7 @@ class MemoryCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("cat /proc/meminfo")
+        result = ctx.command("cat /proc/meminfo")
         values: dict[str, int] = {}
         for line in result.stdout.splitlines():
             parts = line.split()
@@ -151,9 +161,15 @@ class MemoryCheck(BaseCheck):
                     values[key] = int(parts[1])
                 except ValueError:
                     continue
+        if "MemTotal" not in values or not ({"MemAvailable", "MemFree"} & values.keys()):
+            raise CheckNotEvaluableError("Memoria: faltan contadores requeridos")
         total = values.get("MemTotal", 0)
+        if total <= 0:
+            raise CheckNotEvaluableError("Memoria: MemTotal debe ser positivo")
         available = values.get("MemAvailable", values.get("MemFree", 0))
-        used = max(total - available, 0)
+        if not 0 <= available <= total:
+            raise CheckNotEvaluableError("Contadores de memoria inconsistentes")
+        used = total - available
         percent = (used / total * 100) if total else 0.0
         thr = ctx.thresholds
         if percent >= thr.mem_crit_percent:
@@ -188,12 +204,16 @@ class LoadAverageCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        load = ctx.ssh.run("cat /proc/loadavg")
-        nproc = ctx.ssh.run("nproc")
-        cores = int(nproc.output) if nproc.ok and nproc.output.isdigit() else 1
+        load = ctx.command("cat /proc/loadavg")
+        nproc = ctx.command("nproc")
+        if not nproc.output.isdigit() or int(nproc.output) < 1:
+            raise CheckNotEvaluableError("Número de CPU inválido")
+        cores = int(nproc.output)
         parts = load.output.split()
         load1 = float(parts[0]) if parts else 0.0
-        ratio = load1 / cores if cores else load1
+        if not math.isfinite(load1) or load1 < 0:
+            raise CheckNotEvaluableError("Load average inválido")
+        ratio = load1 / cores
         thr = ctx.thresholds
         if ratio >= thr.load_crit_ratio:
             severity = Severity.CRITICAL

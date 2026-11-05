@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from infraaudit.checks.base import BaseCheck, CheckContext
+import math
+
+from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
 from infraaudit.models import CheckCategory, Finding, Severity
 
 
@@ -13,16 +15,18 @@ class FilesystemCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("df -P -x tmpfs -x devtmpfs -x squashfs")
+        result = ctx.command("df -P -x tmpfs -x devtmpfs -x squashfs")
         findings: list[Finding] = []
         thr = ctx.thresholds
         lines = result.stdout.strip().splitlines()
         for line in lines[1:]:
             parts = line.split()
             if len(parts) < 6:
-                continue
+                raise CheckNotEvaluableError("Fila de df incompleta")
             filesystem, size, used, avail, usep, mount = parts[:6]
             percent = float(usep.rstrip("%"))
+            if not math.isfinite(percent) or not 0 <= percent <= 100:
+                raise CheckNotEvaluableError("Porcentaje de filesystem inválido")
             if percent >= thr.disk_crit_percent:
                 severity = Severity.CRITICAL
                 recommendation = f"Liberar espacio en {mount} o ampliar volumen"
@@ -49,15 +53,7 @@ class FilesystemCheck(BaseCheck):
                 )
             )
         if not findings:
-            findings.append(
-                self.finding(
-                    severity=Severity.LOW,
-                    target=ctx.host.id,
-                    message="No se obtuvieron filesystems (df falló o vacío)",
-                    recommendation="Verificar permisos y disponibilidad de df",
-                    evidence={"stdout": result.stdout, "stderr": result.stderr},
-                )
-            )
+            raise CheckNotEvaluableError("No se obtuvieron filas válidas de filesystems")
         return findings
 
 
@@ -68,17 +64,19 @@ class InodeCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("df -Pi -x tmpfs -x devtmpfs -x squashfs")
+        result = ctx.command("df -Pi -x tmpfs -x devtmpfs -x squashfs")
         findings: list[Finding] = []
         thr = ctx.thresholds
         for line in result.stdout.strip().splitlines()[1:]:
             parts = line.split()
             if len(parts) < 6:
-                continue
+                raise CheckNotEvaluableError("Fila de df incompleta")
             filesystem, inodes, iused, _ifree, iusep, mount = parts[:6]
             if iusep == "-":
                 continue
             percent = float(iusep.rstrip("%"))
+            if not math.isfinite(percent) or not 0 <= percent <= 100:
+                raise CheckNotEvaluableError("Porcentaje de inodos inválido")
             if percent >= thr.inode_crit_percent:
                 severity = Severity.CRITICAL
                 recommendation = f"Inodos críticos en {mount}: limpiar archivos pequeños"
@@ -103,14 +101,9 @@ class InodeCheck(BaseCheck):
                     },
                 )
             )
-        return findings or [
-            self.finding(
-                severity=Severity.INFO,
-                target=ctx.host.id,
-                message="Sin datos de inodos",
-                evidence={"stdout": result.stdout},
-            )
-        ]
+        if not findings:
+            raise CheckNotEvaluableError("No se obtuvieron datos evaluables de inodos")
+        return findings
 
 
 class MountsCheck(BaseCheck):
@@ -120,14 +113,14 @@ class MountsCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("findmnt -A -n -o TARGET,SOURCE,FSTYPE,OPTIONS")
+        result = ctx.command("findmnt -A -n -o TARGET,SOURCE,FSTYPE,OPTIONS")
         findings: list[Finding] = []
         risky = ("noexec",)  # informational flags of interest
         rw_tmp = False
         for line in result.stdout.splitlines():
             parts = line.split(None, 3)
             if len(parts) < 4:
-                continue
+                raise CheckNotEvaluableError("Fila de findmnt incompleta")
             target, source, fstype, options = parts
             evidence = {
                 "target": target,

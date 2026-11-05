@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 import json
+import math
+import re
 from typing import Any
 
-from infraaudit.checks.base import BaseCheck, CheckContext
+from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
 from infraaudit.models import CheckCategory, Finding, Severity
-from infraaudit.ssh import SSHClient
 
 
-def _docker_json(ssh: SSHClient, command: str) -> Any:
-    result = ssh.run(command)
-    if not result.ok or not result.stdout.strip():
-        return None
+def _docker_json(ctx: CheckContext, command: str) -> Any:
+    result = ctx.command(command)
     try:
         return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return None
+    except json.JSONDecodeError as exc:
+        raise CheckNotEvaluableError("Docker devolvió JSON inválido") from exc
 
 
 class DockerVersionCheck(BaseCheck):
@@ -28,25 +27,18 @@ class DockerVersionCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("docker version --format '{{json .}}' 2>/dev/null")
-        if not result.ok:
-            return [
-                self.finding(
-                    severity=Severity.HIGH,
-                    target=ctx.host.id,
-                    message="Docker no disponible o sin permisos",
-                    recommendation="Instalar Docker o agregar el usuario al grupo docker",
-                    evidence={"stderr": result.stderr},
-                )
-            ]
-        data = _docker_json(ctx.ssh, "docker version --format '{{json .}}'")
-        server = (data or {}).get("Server", {}).get("Version", "unknown")
+        data = _docker_json(ctx, "docker version --format '{{json .}}'")
+        if not isinstance(data, dict) or not isinstance(data.get("Server"), dict):
+            raise CheckNotEvaluableError("Docker no informó versión del servidor")
+        server = data["Server"].get("Version")
+        if not isinstance(server, str) or not server:
+            raise CheckNotEvaluableError("Versión Docker vacía o inválida")
         return [
             self.finding(
                 severity=Severity.INFO,
                 target=ctx.host.id,
                 message=f"Docker server version: {server}",
-                evidence={"version": data or result.stdout.strip()},
+                evidence={"version": data},
             )
         ]
 
@@ -59,20 +51,18 @@ class DockerContainersCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        jq_cmd = "docker ps -a --format '{{json .}}' | jq -s . 2>/dev/null"
-        containers = _docker_json(ctx.ssh, jq_cmd)
-        if containers is None:
-            # Fallback sin jq: una línea JSON por container
-            result = ctx.ssh.run("docker ps -a --format '{{json .}}'")
-            containers = []
-            for line in result.stdout.splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    containers.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
+        result = ctx.command("docker ps -a --format '{{json .}}'", allow_empty=True)
+        containers = []
+        for line in result.stdout.splitlines():
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise CheckNotEvaluableError("Fila JSON de docker ps inválida") from exc
+            if not isinstance(item, dict) or not item.get("State") or not item.get("Names"):
+                raise CheckNotEvaluableError("Fila de docker ps incompleta")
+            containers.append(item)
 
         running = [c for c in containers if str(c.get("State", "")).lower() == "running"]
         stopped = [c for c in containers if str(c.get("State", "")).lower() != "running"]
@@ -128,27 +118,20 @@ class DockerResourcesCheck(BaseCheck):
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
         stats_fmt = "{{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}\t{{.MemUsage}}"
-        result = ctx.ssh.run(f"docker stats --no-stream --format '{stats_fmt}'")
+        result = ctx.command(f"docker stats --no-stream --format '{stats_fmt}'", allow_empty=True)
         findings: list[Finding] = []
-        if not result.ok:
-            return [
-                self.finding(
-                    severity=Severity.LOW,
-                    target=ctx.host.id,
-                    message="No se pudo obtener docker stats",
-                    evidence={"stderr": result.stderr},
-                )
-            ]
         for line in result.stdout.splitlines():
             parts = line.split("\t")
             if len(parts) < 3:
-                continue
+                raise CheckNotEvaluableError("Fila de docker stats incompleta")
             name, cpu_s, mem_s = parts[0], parts[1], parts[2]
             try:
                 cpu = float(cpu_s.rstrip("%"))
                 mem = float(mem_s.rstrip("%"))
-            except ValueError:
-                continue
+            except ValueError as exc:
+                raise CheckNotEvaluableError("Porcentajes Docker inválidos") from exc
+            if not math.isfinite(cpu) or not math.isfinite(mem) or cpu < 0 or not 0 <= mem <= 100:
+                raise CheckNotEvaluableError("Porcentajes Docker fuera de rango")
             severity = Severity.INFO
             recommendation = ""
             if cpu >= 90 or mem >= 90:
@@ -167,6 +150,9 @@ class DockerResourcesCheck(BaseCheck):
                 )
             )
         if not findings:
+            running = ctx.command("docker ps -q", allow_empty=True)
+            if running.output:
+                raise CheckNotEvaluableError("docker stats sin datos para contenedores activos")
             findings.append(
                 self.finding(
                     severity=Severity.INFO,
@@ -186,9 +172,11 @@ class DockerSecurityCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("docker ps -q")
+        result = ctx.command("docker ps -q", allow_empty=True)
         ids = [x.strip() for x in result.stdout.splitlines() if x.strip()]
         findings: list[Finding] = []
+        if any(not re.fullmatch(r"[a-fA-F0-9]{12,64}", identifier) for identifier in ids):
+            raise CheckNotEvaluableError("IDs Docker inválidos")
         if not ids:
             return [
                 self.finding(
@@ -198,21 +186,18 @@ class DockerSecurityCheck(BaseCheck):
                 )
             ]
 
-        inspect = ctx.ssh.run(f"docker inspect {' '.join(ids)}")
-        try:
-            data = json.loads(inspect.stdout)
-        except json.JSONDecodeError:
-            return [
-                self.finding(
-                    severity=Severity.LOW,
-                    target=ctx.host.id,
-                    message="No se pudo parsear docker inspect",
-                    evidence={"stderr": inspect.stderr},
-                )
-            ]
+        data = _docker_json(ctx, f"docker inspect {' '.join(ids)}")
+        if not isinstance(data, list) or len(data) != len(ids):
+            raise CheckNotEvaluableError("Respuesta de docker inspect incompleta")
 
         for item in data:
-            name = item.get("Name", item.get("Id", "unknown")).lstrip("/")
+            if (
+                not isinstance(item, dict)
+                or not all(isinstance(item.get(k), dict) for k in ("Config", "State", "HostConfig"))
+                or not isinstance(item["HostConfig"].get("Privileged"), bool)
+            ):
+                raise CheckNotEvaluableError("docker inspect sin campos de seguridad requeridos")
+            name = str(item.get("Name") or item.get("Id") or "unknown").lstrip("/")
             host_config = item.get("HostConfig") or {}
             config = item.get("Config") or {}
             state = item.get("State") or {}
@@ -299,8 +284,12 @@ class DockerNetworksCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("docker network ls --format '{{.Name}}\t{{.Driver}}\t{{.Scope}}'")
+        result = ctx.command(
+            "docker network ls --format '{{.Name}}\t{{.Driver}}\t{{.Scope}}'", allow_empty=True
+        )
         networks = [ln for ln in result.stdout.splitlines() if ln.strip()]
+        if any(len(line.split("\t")) != 3 for line in networks):
+            raise CheckNotEvaluableError("Fila de redes Docker incompleta")
         bridge_custom = [n for n in networks if not n.startswith(("bridge\t", "host\t", "none\t"))]
         return [
             self.finding(
@@ -320,8 +309,10 @@ class DockerVolumesCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("docker volume ls --format '{{.Name}}\t{{.Driver}}'")
+        result = ctx.command("docker volume ls --format '{{.Name}}\t{{.Driver}}'", allow_empty=True)
         volumes = [ln for ln in result.stdout.splitlines() if ln.strip()]
+        if any(len(line.split("\t")) != 2 for line in volumes):
+            raise CheckNotEvaluableError("Fila de volúmenes Docker incompleta")
         return [
             self.finding(
                 severity=Severity.INFO,

@@ -50,10 +50,9 @@ Python declaradas. El estado actual se consulta en la pestaña Actions.
 
 1. La deny-list SSH es una defensa parcial; no garantiza aislamiento frente a
    plugins arbitrarios. Usar cuentas y permisos mínimos en destinos autorizados.
-2. Algunos checks Linux/Docker interpretan salida vacía o comandos no disponibles
-   como ausencia de recursos. Revisar evidencia y permisos: un finding INFO no
-   garantiza cobertura completa. Conviene distinguir explícitamente estados
-   no evaluables en una siguiente iteración.
+2. La mejora 01 incorpora estados y cobertura para evitar resultados saludables
+   ante fuentes fallidas o insuficientes. Ver MEJORA-01-ESTADOS-Y-COBERTURA.md.
+   Los plugins externos deben adoptar el contrato de evidencia.
 3. El transporte SSH espera el exit status antes de drenar stdout/stderr. Comandos
    con mucha salida pueden atascarse por la ventana del canal; hace falta validar
    streaming y timeout total antes de auditorías de gran tamaño.

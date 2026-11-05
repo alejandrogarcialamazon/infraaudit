@@ -49,7 +49,9 @@ def test_dns_unresolved_is_not_healthy(monkeypatch) -> None:  # type: ignore[no-
     monkeypatch.setattr("infraaudit.checks.network.services._resolve_dns", lambda *a: [])
     record = DnsRecord(id="missing", name="missing.invalid")
     ctx = CheckContext(inventory=Inventory(), extras={"dns_record": record})
-    assert DnsCheck().execute(ctx)[0].severity == Severity.HIGH
+    result = DnsCheck().run(ctx)
+    assert result.status.value == "not_evaluated"
+    assert not result.findings
 
 
 def test_dns_custom_nameserver_is_used(monkeypatch) -> None:  # type: ignore[no-untyped-def]

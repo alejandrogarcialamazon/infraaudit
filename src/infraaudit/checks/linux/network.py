@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from infraaudit.checks.base import BaseCheck, CheckContext
+from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
 from infraaudit.models import CheckCategory, Finding, Severity
 
 
@@ -13,7 +13,7 @@ class GatewayCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run(
+        result = ctx.command(
             "ip route show default 2>/dev/null || route -n 2>/dev/null | awk '/^0.0.0.0/ {print}'"
         )
         if not result.output:
@@ -43,7 +43,7 @@ class DnsResolversCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("cat /etc/resolv.conf 2>/dev/null")
+        result = ctx.command("cat /etc/resolv.conf 2>/dev/null")
         nameservers = [
             line.split()[1]
             for line in result.stdout.splitlines()
@@ -77,16 +77,25 @@ class NtpCheck(BaseCheck):
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
         timedate = ctx.ssh.run("timedatectl status 2>/dev/null")
-        chronyc = ctx.ssh.run("chronyc tracking 2>/dev/null | head -n 5")
+        chronyc = ctx.ssh.run("chronyc tracking 2>/dev/null")
+        if not ((timedate.ok and timedate.output) or (chronyc.ok and chronyc.output)):
+            raise CheckNotEvaluableError("No se pudo consultar ninguna fuente NTP")
         synced = False
         evidence: dict[str, str] = {
             "timedatectl": timedate.stdout.strip(),
             "chronyc": chronyc.stdout.strip(),
         }
-        text = (timedate.stdout + "\n" + chronyc.stdout).lower()
-        if "system clock synchronized: yes" in text or "leap status" in text:
+        text = (
+            (timedate.stdout if timedate.ok else "") + "\n" + (chronyc.stdout if chronyc.ok else "")
+        ).lower()
+        if "system clock synchronized:" not in text and "leap status" not in text:
+            raise CheckNotEvaluableError("Las fuentes NTP no informaron sincronización", evidence)
+        if "system clock synchronized: yes" in text:
             synced = True
-        if "ntp service: active" in text:
+        if any(
+            "leap status" in line and line.split(":")[-1].strip() == "normal"
+            for line in text.splitlines()
+        ):
             synced = True
         if synced:
             return [
@@ -115,8 +124,14 @@ class ListeningPortsCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("ss -tuln 2>/dev/null || netstat -tuln 2>/dev/null")
-        lines = [ln for ln in result.stdout.splitlines() if "LISTEN" in ln or "UDP" in ln]
+        result = ctx.command("ss -tuln 2>/dev/null || netstat -tuln 2>/dev/null")
+        if "State" not in result.stdout and "Proto" not in result.stdout:
+            raise CheckNotEvaluableError("Salida de ss/netstat sin cabecera reconocible")
+        lines = [
+            ln
+            for ln in result.stdout.splitlines()
+            if "LISTEN" in ln or ln.split()[:1] in (["udp"], ["udp6"])
+        ]
         # Detectar binding a 0.0.0.0 en puertos sensibles
         sensitive = {22, 3306, 5432, 6379, 27017, 9200}
         findings: list[Finding] = [
@@ -151,7 +166,9 @@ class SystemdFailedCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.ssh.run("systemctl --failed --no-legend --no-pager 2>/dev/null")
+        result = ctx.command(
+            "systemctl --failed --no-legend --no-pager 2>/dev/null", allow_empty=True
+        )
         lines = [ln for ln in result.stdout.splitlines() if ln.strip()]
         if not lines:
             return [
@@ -162,7 +179,10 @@ class SystemdFailedCheck(BaseCheck):
                     evidence={"failed_units": []},
                 )
             ]
-        units = [ln.split()[0] for ln in lines]
+        rows = [ln.lstrip("● ").split() for ln in lines]
+        if any(len(row) < 4 or "failed" not in row[1:] for row in rows):
+            raise CheckNotEvaluableError("Salida de systemctl no reconocida")
+        units = [row[0] for row in rows]
         return [
             self.finding(
                 severity=Severity.HIGH,

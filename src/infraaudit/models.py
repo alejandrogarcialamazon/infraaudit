@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Severity(StrEnum):
@@ -36,6 +36,15 @@ class CheckCategory(StrEnum):
     NETWORK = "network"
 
 
+class CheckStatus(StrEnum):
+    """Estado de ejecución, independiente de la severidad del diagnóstico."""
+
+    COMPLETED = "completed"
+    NOT_EVALUATED = "not_evaluated"
+    ERROR = "error"
+    SKIPPED = "skipped"
+
+
 class Finding(BaseModel):
     """Hallazgo individual producido por un check."""
 
@@ -58,10 +67,38 @@ class CheckResult(BaseModel):
     check_id: str
     category: CheckCategory
     target: str
-    success: bool
+    success: bool = True
+    status: CheckStatus = CheckStatus.COMPLETED
+    reason: str | None = None
+    diagnostic_evidence: dict[str, Any] = Field(default_factory=dict)
     findings: list[Finding] = Field(default_factory=list)
     error: str | None = None
     duration_ms: float = 0.0
+
+    @model_validator(mode="before")
+    @classmethod
+    def load_legacy_status(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "status" in data:
+            completed = data["status"] == CheckStatus.COMPLETED
+            if "success" in data and data["success"] != completed:
+                raise ValueError("success contradice el estado de ejecución")
+            if completed and data.get("error"):
+                raise ValueError("Un resultado completed no puede contener error")
+        if isinstance(data, dict) and "status" not in data:
+            data = dict(data)
+            data["status"] = (
+                CheckStatus.ERROR
+                if data.get("success") is False or data.get("error")
+                else CheckStatus.COMPLETED
+            )
+        return data
+
+    @model_validator(mode="after")
+    def normalize_success(self) -> CheckResult:
+        self.success = self.status == CheckStatus.COMPLETED
+        if not self.success and not self.reason:
+            self.reason = self.error or "Sin motivo registrado"
+        return self
 
 
 class HostResult(BaseModel):
@@ -84,6 +121,7 @@ class HostResult(BaseModel):
 class AuditReport(BaseModel):
     """Informe completo de una corrida de InfraAudit."""
 
+    schema_version: str = "2.0"
     inventory_path: str
     started_at: datetime
     finished_at: datetime | None = None
@@ -107,8 +145,31 @@ class AuditReport(BaseModel):
             counts[finding.severity.value] += 1
         return counts
 
+    @property
+    def all_results(self) -> list[CheckResult]:
+        return [r for h in self.host_results for r in h.check_results] + self.network_results
+
     def summary(self) -> dict[str, Any]:
+        statuses = {s.value: 0 for s in CheckStatus}
+        for result in self.all_results:
+            statuses[result.status.value] += 1
+        planned = len(self.all_results)
+        selected = planned - statuses[CheckStatus.SKIPPED.value]
+        completed = statuses[CheckStatus.COMPLETED.value]
+        connection_errors = sum(h.connection_error is not None for h in self.host_results)
+        complete = (
+            selected > 0
+            and completed == selected
+            and connection_errors == 0
+            and self.finished_at is not None
+        )
         return {
+            "planned_checks": planned,
+            "selected_checks": selected,
+            "completed_checks": completed,
+            "by_status": statuses,
+            "coverage_percent": round(100 * completed / selected, 2) if selected else 0.0,
+            "complete": complete,
             "hosts": len(self.host_results),
             "network_checks": len(self.network_results),
             "total_findings": len(self.all_findings),

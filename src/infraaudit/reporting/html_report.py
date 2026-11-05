@@ -52,6 +52,11 @@ class HtmlReporter(BaseReporter):
                 f"<section><h2>Network</h2>{self._findings_table(net_findings)}</section>"
             )
 
+        execution_rows = "".join(
+            f"<tr><td>{_esc(r.check_id)}</td><td>{_esc(r.target)}</td>"
+            f"<td>{_esc(r.status.value)}</td><td>{_esc(r.reason or '')}</td></tr>"
+            for r in report.all_results
+        )
         finished = report.finished_at.isoformat() if report.finished_at else "N/A"
         return f"""<!DOCTYPE html>
 <html lang="es">
@@ -118,6 +123,14 @@ class HtmlReporter(BaseReporter):
       Findings: <strong>{summary["total_findings"]}</strong> ·
       Connection errors: <strong>{summary["connection_errors"]}</strong>
     </p>
+  </section>
+  <section>
+    <h2>Coverage / cobertura</h2>
+    <p>Planned: {summary["planned_checks"]} · Selected: {summary["selected_checks"]} ·
+    Completed: {summary["completed_checks"]} · Coverage: {summary["coverage_percent"]}% ·
+    Complete: {summary["complete"]}</p>
+    <table><thead><tr><th>Check</th><th>Target</th><th>Status</th><th>Reason</th></tr></thead>
+    <tbody>{execution_rows}</tbody></table>
   </section>
   <h2>Hosts</h2>
   {"".join(host_sections) or "<p>No hosts audited.</p>"}

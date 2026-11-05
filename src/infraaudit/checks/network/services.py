@@ -10,7 +10,7 @@ from typing import Any
 
 import httpx
 
-from infraaudit.checks.base import BaseCheck, CheckContext
+from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
 from infraaudit.config import DnsRecord, HttpService, TcpService
 from infraaudit.models import CheckCategory, Finding, Severity
 
@@ -59,15 +59,10 @@ class DnsCheck(BaseCheck):
         actual = _resolve_dns(record.name, record.record_type, record.nameserver)
         expected = [v.rstrip(".") for v in record.expected]
         if not actual:
-            return [
-                self.finding(
-                    severity=Severity.HIGH,
-                    target=record.id,
-                    message=f"Sin respuesta DNS para {record.name} ({record.record_type})",
-                    recommendation="Verificar DNS y disponibilidad de dig si corresponde",
-                    evidence={"actual": actual, "expected": expected},
-                )
-            ]
+            raise CheckNotEvaluableError(
+                f"Sin evidencia DNS para {record.name} ({record.record_type})",
+                {"actual": actual, "expected": expected},
+            )
         if not expected:
             resolved = ", ".join(actual) or "sin respuesta"
             return [
@@ -262,16 +257,11 @@ class HttpCheck(BaseCheck):
                 try:
                     tls = _tls_info(parsed_host, port, timeout=service.timeout)
                 except OSError as exc:
-                    findings.append(
-                        self.finding(
-                            severity=Severity.HIGH,
-                            target=service.id,
-                            message=f"No se pudo inspeccionar TLS de {parsed_host}: {exc}",
-                            recommendation="Verificar handshake TLS y cadena de certificados",
-                            evidence={"error": str(exc)},
-                        )
-                    )
-                    return findings
+                    raise CheckNotEvaluableError(
+                        f"No se pudo inspeccionar TLS de {parsed_host}: {exc}",
+                        {"error": str(exc)},
+                        findings=findings,
+                    ) from exc
                 days = tls.get("days_left")
                 if isinstance(days, int):
                     if days <= thr.tls_crit_days:
@@ -296,12 +286,9 @@ class HttpCheck(BaseCheck):
                         )
                     )
                 else:
-                    findings.append(
-                        self.finding(
-                            severity=Severity.MEDIUM,
-                            target=service.id,
-                            message=f"TLS info incompleta para {parsed_host}",
-                            evidence=tls,
-                        )
+                    raise CheckNotEvaluableError(
+                        f"TLS info incompleta para {parsed_host}",
+                        tls,
+                        findings=findings,
                     )
         return findings

@@ -140,12 +140,11 @@ def run_cmd(
     summary = report.summary()
     console.print(
         f"Hosts={summary['hosts']} findings={summary['total_findings']} "
-        f"errors={summary['connection_errors']}"
+        f"errors={summary['connection_errors']} "
+        f"coverage={summary['coverage_percent']}% complete={summary['complete']}"
     )
     # Un informe incompleto nunca debe pasar como auditoría saludable.
-    results = [r for h in report.host_results for r in h.check_results]
-    results.extend(report.network_results)
-    if summary["connection_errors"] or any(not r.success for r in results):
+    if not summary["complete"]:
         raise typer.Exit(code=1)
     if summary["by_severity"].get("CRITICAL", 0) > 0:
         raise typer.Exit(code=2)
@@ -170,6 +169,7 @@ def report_cmd(
 
     try:
         payload = json.loads(results.read_text(encoding="utf-8"))
+        payload.setdefault("schema_version", "1.0")
         report = AuditReport.model_validate(payload)
     except Exception as exc:
         console.print(f"[red]No se pudo leer results:[/red] {exc}")

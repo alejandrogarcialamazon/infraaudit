@@ -44,4 +44,5 @@ def test_docker_only_skips_ssh_for_disabled_host(sample_inventory, monkeypatch) 
     monkeypatch.setattr("infraaudit.ssh.SSHClient.connect", unexpected)
     report = AuditEngine(sample_inventory, categories=[CheckCategory.DOCKER]).run()
     assert report.host_results[0].connection_error is None
-    assert report.host_results[0].check_results == []
+    assert all(r.status.value == "skipped" for r in report.host_results[0].check_results)
+    assert not report.summary()["complete"]
