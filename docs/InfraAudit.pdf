@@ -1,0 +1,705 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 7 0 R 10 0 R 13 0 R 16 0 R 19 0 R 22 0 R 25 0 R 28 0 R 31 0 R 34 0 R] /Count 11 >>
+endobj
+3 0 obj
+<< /Length 1933 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(INFRAAUDIT ? MANUAL TÉCNICO) Tj
+T* (=============================) Tj
+T* () Tj
+T* (Versión 1.0.0 · Auditorías read-only de infraestructura Linux, Docker y red) Tj
+T* () Tj
+T* (---) Tj
+T* () Tj
+T* () Tj
+T* (1. Introducción) Tj
+T* (------------------) Tj
+T* () Tj
+T* (InfraAudit es una herramienta CLI reutilizable para realizar auditorías técnicas y) Tj
+T* (health checks de infraestructura. Está orientada a equipos de consultoría, DevOps y SRE) Tj
+T* (que necesitan evidencia reproducible, hallazgos priorizados por severidad y reportes) Tj
+T* (entregables al cliente.) Tj
+T* () Tj
+T* (La herramienta no ejecuta acciones destructivas ni de remediación. Su alcance es) Tj
+T* (exclusivamente de lectura y diagnóstico.) Tj
+T* () Tj
+T* () Tj
+T* (2. Objetivos) Tj
+T* (---------------) Tj
+T* () Tj
+T* (- Inventariar y evaluar hosts Linux de forma remota vía SSH) Tj
+T* (- Auditar runtime Docker \(estado, seguridad, recursos\)) Tj
+T* (- Validar servicios de red \(DNS, TCP, HTTP/TLS\) desde la estación del auditor) Tj
+T* (- Producir hallazgos estructurados \(Finding\) con evidencia y recomendaciones) Tj
+T* (- Exportar resultados a JSON, Markdown y HTML) Tj
+T* () Tj
+T* () Tj
+T* (3. Arquitectura) Tj
+T* (------------------) Tj
+T* () Tj
+T* (Componentes principales:) Tj
+T* () Tj
+T* (1. CLI \(Typer\) ? validate, run, report, list-checks) Tj
+T* (2. Config ? inventario YAML + expansión de variables de entorno + Pydantic) Tj
+T* (3. Engine ? orquesta checks por categoría y host) Tj
+T* (4. SSH Client ? Paramiko con timeouts y bloqueo de comandos peligrosos) Tj
+T* (5. Check plugins ? subclases de BaseCheck registradas en CheckRegistry) Tj
+T* (6. Reporting ? JSON / Markdown / HTML) Tj
+T* () Tj
+T* (Flujo:) Tj
+T* () Tj
+T* (```) Tj
+T* (Inventario YAML) Tj
+T* (    ? Validación) Tj
+T* (    ? Conexión SSH por host \(linux/docker\)) Tj
+T* (    ? Checks de red locales) Tj
+T* (    ? Agregación AuditReport) Tj
+ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 3 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Length 1591 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(    ? Exporters) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (4. Modelo de datos) Tj
+T* (---------------------) Tj
+T* () Tj
+T* (Severidades) Tj
+T* () Tj
+T* (| Severidad | Uso típico |) Tj
+T* (| --- | --- |) Tj
+T* (| INFO | Inventario / estado saludable |) Tj
+T* (| LOW | Mejora recomendada |) Tj
+T* (| MEDIUM | Riesgo moderado o degradación |) Tj
+T* (| HIGH | Problema importante a remediar pronto |) Tj
+T* (| CRITICAL | Riesgo inmediato o indisponibilidad |) Tj
+T* () Tj
+T* (Finding) Tj
+T* () Tj
+T* (Cada check produce cero o más hallazgos con: severity, check, target,) Tj
+T* (message, recommendation, evidence.) Tj
+T* () Tj
+T* () Tj
+T* (5. Checks incluidos) Tj
+T* (----------------------) Tj
+T* () Tj
+T* (Linux) Tj
+T* () Tj
+T* (hostname, distribution, kernel, uptime, CPU, memory, load average, filesystems,) Tj
+T* (inode usage, mounts, gateway, DNS resolvers, NTP, listening ports, systemd failed units.) Tj
+T* () Tj
+T* (Docker) Tj
+T* () Tj
+T* (version, containers \(running/stopped/health\), resource usage, restart policy,) Tj
+T* (privileged containers, containers as root, healthchecks, networks, volumes.) Tj
+T* () Tj
+T* (Network) Tj
+T* () Tj
+T* (DNS records, TCP port connectivity, HTTP/HTTPS status + latency, TLS expiry,) Tj
+T* (issuer, SAN.) Tj
+T* () Tj
+T* () Tj
+T* (6. Inventario YAML) Tj
+T* (---------------------) Tj
+T* () Tj
+T* (El inventario declara hosts, servicios HTTP/TCP, registros DNS y umbrales.) Tj
+T* (Las credenciales se inyectan con ${VAR} o ${VAR:-default}.) Tj
+T* () Tj
+T* (Nunca incluir passwords en claro en repositorios.) Tj
+T* () Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 8 0 R >> >> >>
+endobj
+8 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+9 0 obj
+<< /Length 1663 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+() Tj
+T* (7. Uso de la CLI) Tj
+T* (-------------------) Tj
+T* () Tj
+T* (```bash) Tj
+T* (pip install -e .) Tj
+T* (infraaudit validate examples/inventory.example.yml) Tj
+T* (infraaudit run examples/inventory.example.yml --only network -o results.json) Tj
+T* (infraaudit report results.json --format html -o report.html) Tj
+T* (```) Tj
+T* () Tj
+T* (Filtros:) Tj
+T* () Tj
+T* (- --only linux|docker|network) Tj
+T* (- skip_checks por host en el YAML) Tj
+T* () Tj
+T* () Tj
+T* (8. Extensión) Tj
+T* (---------------) Tj
+T* () Tj
+T* (1. Crear clase que herede BaseCheck) Tj
+T* (2. Implementar execute\(ctx\) -> list[Finding]) Tj
+T* (3. Registrar en ALL_LINUX_CHECKS / ALL_DOCKER_CHECKS / ALL_NETWORK_CHECKS) Tj
+T* (4. Añadir tests con SSH fake / monkeypatch) Tj
+T* () Tj
+T* () Tj
+T* (9. Seguridad operativa) Tj
+T* (-------------------------) Tj
+T* () Tj
+T* (- Preferir autenticación por clave + agent) Tj
+T* (- Verificar fingerprints y registrar hosts en known_hosts; SSH rechaza claves desconocidas) Tj
+T* (- Limitar el usuario SSH a permisos de lectura necesarios \(sudo sin password solo si es) Tj
+T* (imprescindible y acotado\)) Tj
+T* (- Revisar deny-list de ssh.py antes de añadir comandos nuevos) Tj
+T* (- Conservar results.json como evidencia de auditoría) Tj
+T* () Tj
+T* () Tj
+T* (10. Empaquetado y calidad) Tj
+T* (----------------------------) Tj
+T* () Tj
+T* (- Python 3.12+) Tj
+T* (- pytest para unit tests) Tj
+T* (- ruff para lint) Tj
+T* (- mypy para tipos) Tj
+T* (- Dockerfile + docker-compose.yml para ejecución reproducible) Tj
+T* () Tj
+T* () Tj
+T* (11. Limitaciones conocidas) Tj
+T* (-----------------------------) Tj
+T* () Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 9 0 R /Resources << /Font << /F1 11 0 R >> >> >>
+endobj
+11 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+12 0 obj
+<< /Length 1975 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(- Checks DNS CNAME/MX/TXT requieren dig en el PATH del auditor) Tj
+T* (- Uso de CPU vía /proc/stat es una aproximación de un snapshot) Tj
+T* (- No reemplaza un vulnerability scanner ni un CSPM cloud) Tj
+T* (- Ver review.md para la evaluación y límites de la beta) Tj
+T* () Tj
+T* () Tj
+T* (12. Licencia) Tj
+T* (---------------) Tj
+T* () Tj
+T* (MIT.) Tj
+T* () Tj
+T* () Tj
+T* (ARQUITECTURA DE INFRAAUDIT) Tj
+T* (============================) Tj
+T* () Tj
+T* () Tj
+T* (Visión) Tj
+T* (---------) Tj
+T* () Tj
+T* (InfraAudit es una CLI de auditoría read-only orientada a consultoría, DevOps y SRE.) Tj
+T* (Consume un inventario YAML, ejecuta checks no destructivos \(SSH + red local\) y produce) Tj
+T* (hallazgos \(Finding\) exportables a JSON, Markdown y HTML.) Tj
+T* () Tj
+T* () Tj
+T* (Diagrama lógico) Tj
+T* (------------------) Tj
+T* () Tj
+T* (```text) Tj
+T* (???????????????     ????????????????     ??????????????????????) Tj
+T* (? inventory.yml??????? AuditEngine  ??????? reporters \(json/md ?) Tj
+T* (???????????????     ?              ?     ? html\)              ?) Tj
+T* (                    ?  CheckRegistry?     ??????????????????????) Tj
+T* (                    ????????????????) Tj
+T* (           ??????????????????????????????????) Tj
+T* (           ?               ?                ?) Tj
+T* (     Linux checks    Docker checks    Network checks) Tj
+T* (     \(via SSH\)       \(via SSH\)        \(local auditor\)) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (Componentes) Tj
+T* (--------------) Tj
+T* () Tj
+T* (| Módulo | Responsabilidad |) Tj
+T* (| --- | --- |) Tj
+T* (| cli.py | Interfaz Typer \(validate, run, report, list-checks\) |) Tj
+T* (| config.py | Carga YAML, expansión ${ENV}, validación Pydantic |) Tj
+T* (| models.py | Finding, CheckResult, HostResult, AuditReport, severidades |) Tj
+T* (| ssh.py | Cliente Paramiko con timeouts y deny-list de comandos destructivos |) Tj
+T* (| engine.py | Orquestación por host/categoría |) Tj
+ET
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 12 0 R /Resources << /Font << /F1 14 0 R >> >> >>
+endobj
+14 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+15 0 obj
+<< /Length 1799 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(| checks/ | Plugins de checks \(BaseCheck + registry\) |) Tj
+T* (| reporting/ | Serialización a JSON/Markdown/HTML |) Tj
+T* () Tj
+T* () Tj
+T* (Modelo de Finding) Tj
+T* (--------------------) Tj
+T* () Tj
+T* (```python) Tj
+T* (Finding\() Tj
+T* (  severity,      # INFO | LOW | MEDIUM | HIGH | CRITICAL) Tj
+T* (  check,         # id del check, p.ej. linux.memory) Tj
+T* (  target,        # host, servicio o recurso) Tj
+T* (  message,       # descripción humana) Tj
+T* (  recommendation,# acción sugerida) Tj
+T* (  evidence,      # dict con datos crudos) Tj
+T* (\)) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (Extensibilidad) Tj
+T* (-----------------) Tj
+T* () Tj
+T* (1. Crear una subclase de BaseCheck.) Tj
+T* (2. Implementar execute\(ctx\) -> list[Finding].) Tj
+T* (3. Registrar la instancia en ALL__CHECKS o en un registry custom.) Tj
+T* (4. El engine la descubrirá automáticamente vía build_default_registry\(\).) Tj
+T* () Tj
+T* (Ver creating-checks.md.) Tj
+T* () Tj
+T* () Tj
+T* (Garantías read-only) Tj
+T* (----------------------) Tj
+T* () Tj
+T* (- No hay comandos de remediación, restart, delete ni write.) Tj
+T* (- SSHClient bloquea patrones peligrosos \(rm, docker rm, systemctl restart, etc.\).) Tj
+T* (- Los checks Docker usan ps, inspect, stats, network ls, volume ls.) Tj
+T* (- Las credenciales se inyectan por variables de entorno / claves; nunca se hardcodean.) Tj
+T* () Tj
+T* () Tj
+T* (Flujo de ejecución) Tj
+T* (---------------------) Tj
+T* () Tj
+T* (1. validate ? valida esquema sin conectar.) Tj
+T* (2. run ? conecta SSH por host, ejecuta checks filtrados \(--only\), corre checks de red.) Tj
+T* (3. Persiste results.json.) Tj
+T* (4. report ? regenera Markdown/HTML desde el JSON.) Tj
+T* () Tj
+T* () Tj
+T* (Timeouts y errores) Tj
+T* (---------------------) Tj
+ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 15 0 R /Resources << /Font << /F1 17 0 R >> >> >>
+endobj
+17 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+18 0 obj
+<< /Length 2106 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+() Tj
+T* (- Timeout SSH configurable por host \(timeout\) y global \(default_timeout\).) Tj
+T* (- HTTP/TCP con timeouts propios.) Tj
+T* (- Fallos de check se convierten en Finding HIGH con evidencia del error; no abortan toda) Tj
+T* (la corrida.) Tj
+T* (- Fallo de conexión SSH se registra en HostResult.connection_error.) Tj
+T* () Tj
+T* () Tj
+T* (Decisiones de diseño) Tj
+T* (-----------------------) Tj
+T* () Tj
+T* (1. Pydantic v2 para contratos claros y mensajes de validación útiles en consultoría.) Tj
+T* (2. Plugins por herencia \(BaseCheck\) en lugar de entry-points complejos: simple de auditar) Tj
+T* (y enseñar.) Tj
+T* (3. Paramiko síncrono para portabilidad y control fino de timeouts \(asyncssh queda como) Tj
+T* (evolución\).) Tj
+T* (4. Severidades fijas alineadas a prácticas de riesgo \(INFO?CRITICAL\) para priorizar) Tj
+T* (remediación.) Tj
+T* (5. Reportes autocontenidos \(HTML sin CDN\) para entregar al cliente offline.) Tj
+T* (6. Separación network vs host: checks de red salen desde la estación del auditor;) Tj
+T* (Linux/Docker vía SSH.) Tj
+T* () Tj
+T* () Tj
+T* (GUÍA: CREAR UN NUEVO CHECK) Tj
+T* (============================) Tj
+T* () Tj
+T* () Tj
+T* (Contrato) Tj
+T* (-----------) Tj
+T* () Tj
+T* (Todo check hereda de BaseCheck e implementa execute:) Tj
+T* () Tj
+T* (```python) Tj
+T* (from infraaudit.checks.base import BaseCheck, CheckContext) Tj
+T* (from infraaudit.models import CheckCategory, Finding, Severity) Tj
+T* () Tj
+T* (class SwapCheck\(BaseCheck\):) Tj
+T* (    check_id = "linux.swap") Tj
+T* (    category = CheckCategory.LINUX) Tj
+T* (    description = "Evalúa uso de swap") Tj
+T* (    requires_ssh = True) Tj
+T* (    requires_docker = False) Tj
+T* () Tj
+T* (    def execute\(self, ctx: CheckContext\) -> list[Finding]:) Tj
+T* (        assert ctx.ssh is not None and ctx.host is not None) Tj
+T* (        result = ctx.ssh.run\("cat /proc/swaps"\)) Tj
+T* (        lines = [ln for ln in result.stdout.splitlines\(\)[1:] if ln.strip\(\)]) Tj
+T* (        if not lines:) Tj
+T* (            return [) Tj
+T* (                self.finding\() Tj
+ET
+endstream
+endobj
+19 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 18 0 R /Resources << /Font << /F1 20 0 R >> >> >>
+endobj
+20 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+21 0 obj
+<< /Length 1775 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(                    severity=Severity.LOW,) Tj
+T* (                    target=ctx.host.id,) Tj
+T* (                    message="Sin swap configurado",) Tj
+T* (                    recommendation="Evaluar si el workload requiere swap",) Tj
+T* (                    evidence={"raw": result.stdout},) Tj
+T* (                \)) Tj
+T* (            ]) Tj
+T* (        return [) Tj
+T* (            self.finding\() Tj
+T* (                severity=Severity.INFO,) Tj
+T* (                target=ctx.host.id,) Tj
+T* (                message=f"Swap entries: {len\(lines\)}",) Tj
+T* (                evidence={"raw": result.stdout.strip\(\)},) Tj
+T* (            \)) Tj
+T* (        ]) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (Registro) Tj
+T* (-----------) Tj
+T* () Tj
+T* (Añadir la instancia a la lista correspondiente:) Tj
+T* () Tj
+T* (```python) Tj
+T* (SRC/INFRAAUDIT/CHECKS/LINUX/__INIT__.PY) Tj
+T* (=========================================) Tj
+T* (ALL_LINUX_CHECKS = [) Tj
+T* (    ...,) Tj
+T* (    SwapCheck\(\),) Tj
+T* (]) Tj
+T* (```) Tj
+T* () Tj
+T* (O registrar en runtime:) Tj
+T* () Tj
+T* (```python) Tj
+T* (from infraaudit.checks import build_default_registry) Tj
+T* (registry = build_default_registry\(\)) Tj
+T* (registry.register\(SwapCheck\(\)\)) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (Buenas prácticas) Tj
+T* (-------------------) Tj
+T* () Tj
+T* (1. Solo lectura: nunca modificar estado remoto.) Tj
+T* (2. Evidencia útil: incluir salida parseada y cruda cuando aporte.) Tj
+T* (3. Recomendación accionable: qué hacer, no solo qué está mal.) Tj
+T* (4. Severidad coherente con umbrales de ctx.thresholds cuando aplique.) Tj
+T* (5. Timeouts: confiar en ctx.ssh.run / timeouts del inventario.) Tj
+T* (6. Tests: mockear SSHClient.run con CommandResult.) Tj
+ET
+endstream
+endobj
+22 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 21 0 R /Resources << /Font << /F1 23 0 R >> >> >>
+endobj
+23 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+24 0 obj
+<< /Length 1473 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(7. IDs estables: categoria.nombre \(ej. linux.swap, docker.security\).) Tj
+T* () Tj
+T* () Tj
+T* (Checks de red \(sin SSH\)) Tj
+T* (--------------------------) Tj
+T* () Tj
+T* (```python) Tj
+T* (class MyNetCheck\(BaseCheck\):) Tj
+T* (    check_id = "network.custom") Tj
+T* (    category = CheckCategory.NETWORK) Tj
+T* (    requires_ssh = False) Tj
+T* () Tj
+T* (    def execute\(self, ctx: CheckContext\) -> list[Finding]:) Tj
+T* (        service = ctx.extras["my_service"]) Tj
+T* (        ...) Tj
+T* (```) Tj
+T* () Tj
+T* (El engine debe pasar el objeto en extras \(ver AuditEngine._run_network_checks\).) Tj
+T* () Tj
+T* () Tj
+T* (Categorías y filtros CLI) Tj
+T* (---------------------------) Tj
+T* () Tj
+T* (```bash) Tj
+T* (infraaudit run inventory.yml --only linux) Tj
+T* (infraaudit run inventory.yml --only docker,network) Tj
+T* (infraaudit list-checks) Tj
+T* (```) Tj
+T* () Tj
+T* (Por host se puede omitir checks:) Tj
+T* () Tj
+T* (```yaml) Tj
+T* (hosts:) Tj
+T* (  - id: web-01) Tj
+T* (    skip_checks: ["linux.mounts", "docker.volumes"]) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (INSTALACIÓN Y EJECUCIÓN) Tj
+T* (=========================) Tj
+T* () Tj
+T* () Tj
+T* (Requisitos) Tj
+T* (-------------) Tj
+T* () Tj
+T* (- Python 3.12+) Tj
+T* (- Acceso SSH a los hosts auditados \(clave o password vía env\)) Tj
+T* (- Opcional: Docker Engine en hosts con docker: true) Tj
+T* (- Opcional: dig en la estación del auditor para DNS no-A/AAAA) Tj
+T* () Tj
+ET
+endstream
+endobj
+25 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 24 0 R /Resources << /Font << /F1 26 0 R >> >> >>
+endobj
+26 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+27 0 obj
+<< /Length 1723 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+() Tj
+T* (Instalación local) Tj
+T* (--------------------) Tj
+T* () Tj
+T* (```bash) Tj
+T* (git clone https://github.com/alejandrogarcialamazon/infraaudit.git) Tj
+T* (cd infraaudit) Tj
+T* (python3.12 -m venv .venv) Tj
+T* (source .venv/bin/activate) Tj
+T* (pip install -U pip) Tj
+T* (pip install -e ".[dev]") Tj
+T* (```) Tj
+T* () Tj
+T* (Verificar:) Tj
+T* () Tj
+T* (```bash) Tj
+T* (infraaudit version) Tj
+T* (infraaudit list-checks) Tj
+T* (infraaudit validate examples/inventory.example.yml) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (Variables de entorno) Tj
+T* (-----------------------) Tj
+T* () Tj
+T* (| Variable | Uso |) Tj
+T* (| --- | --- |) Tj
+T* (| INFRAAUDIT_SSH_USER | Usuario SSH |) Tj
+T* (| INFRAAUDIT_SSH_KEY | Ruta a clave privada |) Tj
+T* (| INFRAAUDIT_SSH_PASSWORD | Password \(alternativa\) |) Tj
+T* (| INFRAAUDIT_HOST_WEB | Host de ejemplo web |) Tj
+T* (| INFRAAUDIT_HOST_DB | Host de ejemplo DB |) Tj
+T* (| INFRAAUDIT_HTTP_URL | URL HTTP de ejemplo |) Tj
+T* () Tj
+T* (Soporta interpolación ${VAR} y ${VAR:-default} en el YAML. Una variable requerida) Tj
+T* (sin definir impide ejecutar el inventario. El archivo .env no se carga automáticamente;) Tj
+T* (exportar las variables antes de ejecutar.) Tj
+T* () Tj
+T* (SSH requiere la clave del servidor en ~/.ssh/known_hosts. Verificar el fingerprint) Tj
+T* (por un canal confiable antes de registrar el host. Las claves desconocidas o cambiadas) Tj
+T* (se rechazan. En Docker, montar también el archivo known_hosts junto con las claves.) Tj
+T* () Tj
+T* () Tj
+T* (Ejecución) Tj
+T* (------------) Tj
+T* () Tj
+T* (```bash) Tj
+T* (VALIDAR INVENTARIO) Tj
+T* (====================) Tj
+T* (infraaudit validate examples/inventory.example.yml) Tj
+ET
+endstream
+endobj
+28 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 27 0 R /Resources << /Font << /F1 29 0 R >> >> >>
+endobj
+29 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+30 0 obj
+<< /Length 1666 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+() Tj
+T* (AUDITORÍA COMPLETA) Tj
+T* (====================) Tj
+T* (infraaudit run examples/inventory.example.yml -o results.json) Tj
+T* () Tj
+T* (SOLO DOCKER) Tj
+T* (=============) Tj
+T* (infraaudit run examples/inventory.example.yml --only docker) Tj
+T* () Tj
+T* (SOLO RED \(DESDE LA ESTACIÓN LOCAL\)) Tj
+T* (====================================) Tj
+T* (infraaudit run examples/inventory.example.yml --only network) Tj
+T* () Tj
+T* (REPORTES) Tj
+T* (==========) Tj
+T* (infraaudit report results.json --format markdown -o report.md) Tj
+T* (infraaudit report results.json --format html -o report.html) Tj
+T* (```) Tj
+T* () Tj
+T* (Códigos de salida:) Tj
+T* () Tj
+T* (| Code | Significado |) Tj
+T* (| --- | --- |) Tj
+T* (| 0 | Auditoría completa sin CRITICAL; puede contener HIGH/MEDIUM/LOW |) Tj
+T* (| 1 | Inventario inválido, conexión SSH fallida o check con error |) Tj
+T* (| 2 | Hallazgos CRITICAL o argumentos CLI inválidos \(consultar stderr\) |) Tj
+T* () Tj
+T* () Tj
+T* (Docker) Tj
+T* (---------) Tj
+T* () Tj
+T* (```bash) Tj
+T* (docker compose build) Tj
+T* (docker compose run --rm infraaudit validate /work/examples/inventory.example.yml) Tj
+T* () Tj
+T* (AUDITORÍA \(MONTAR SSH KEYS Y USAR NETWORK_MODE: HOST SI HACE FALTA\)) Tj
+T* (============================================================) Tj
+T* (docker compose run --rm \\) Tj
+T* (  -v "$HOME/.ssh:/home/infraaudit/.ssh:ro" \\) Tj
+T* (  infraaudit run /work/examples/inventory.example.yml -o /work/out/results.json) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (Desarrollo) Tj
+T* (-------------) Tj
+T* () Tj
+T* (```bash) Tj
+T* (pytest) Tj
+T* (ruff check src tests) Tj
+T* (mypy src) Tj
+ET
+endstream
+endobj
+31 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 30 0 R /Resources << /Font << /F1 32 0 R >> >> >>
+endobj
+32 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+33 0 obj
+<< /Length 411 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(```) Tj
+T* () Tj
+T* () Tj
+T* (Seguridad) Tj
+T* (------------) Tj
+T* () Tj
+T* (- No almacenar passwords en el YAML en claro sin env vars.) Tj
+T* (- Preferir claves SSH con passphrase y ssh-agent.) Tj
+T* (- Ejecutar siempre desde una estación de confianza \(la red se chequea localmente\).) Tj
+T* (- Revisar skip_checks y --only antes de entregas a clientes.) Tj
+T* () Tj
+T* () Tj
+ET
+endstream
+endobj
+34 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 33 0 R /Resources << /Font << /F1 35 0 R >> >> >>
+endobj
+35 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 36
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000185 00000 n 
+0000002170 00000 n 
+0000002296 00000 n 
+0000002366 00000 n 
+0000004009 00000 n 
+0000004135 00000 n 
+0000004205 00000 n 
+0000005920 00000 n 
+0000006048 00000 n 
+0000006119 00000 n 
+0000008147 00000 n 
+0000008276 00000 n 
+0000008347 00000 n 
+0000010199 00000 n 
+0000010328 00000 n 
+0000010399 00000 n 
+0000012558 00000 n 
+0000012687 00000 n 
+0000012758 00000 n 
+0000014586 00000 n 
+0000014715 00000 n 
+0000014786 00000 n 
+0000016312 00000 n 
+0000016441 00000 n 
+0000016512 00000 n 
+0000018288 00000 n 
+0000018417 00000 n 
+0000018488 00000 n 
+0000020207 00000 n 
+0000020336 00000 n 
+0000020407 00000 n 
+0000020870 00000 n 
+0000020999 00000 n 
+trailer
+<< /Size 36 /Root 1 0 R >>
+startxref
+21070
+%%EOF

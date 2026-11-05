@@ -1,0 +1,83 @@
+# Inventario de ejemplo para InfraAudit
+# Credenciales vía variables de entorno — nunca hardcodear secretos.
+
+name: demo-lab
+description: Inventario de laboratorio para demos y tests locales
+
+thresholds:
+  cpu_warn_percent: 80
+  cpu_crit_percent: 95
+  mem_warn_percent: 85
+  mem_crit_percent: 95
+  disk_warn_percent: 80
+  disk_crit_percent: 90
+  inode_warn_percent: 80
+  inode_crit_percent: 90
+  load_warn_ratio: 1.0
+  load_crit_ratio: 2.0
+  http_warn_ms: 1000
+  http_crit_ms: 3000
+  tls_warn_days: 30
+  tls_crit_days: 7
+
+hosts:
+  - id: web-01
+    address: ${INFRAAUDIT_HOST_WEB:-127.0.0.1}
+    port: 22
+    tags: [web, linux, docker]
+    timeout: 30
+    docker: true
+    ssh:
+      username: ${INFRAAUDIT_SSH_USER:-ubuntu}
+      # Preferir clave privada:
+      private_key: ${INFRAAUDIT_SSH_KEY:-~/.ssh/id_ed25519}
+      # Alternativa con password (descomentar si aplica):
+      # password: ${INFRAAUDIT_SSH_PASSWORD}
+      look_for_keys: true
+      allow_agent: true
+    skip_checks: []
+
+  - id: db-01
+    address: ${INFRAAUDIT_HOST_DB:-127.0.0.1}
+    port: 22
+    tags: [database]
+    timeout: 30
+    docker: false
+    ssh:
+      username: ${INFRAAUDIT_SSH_USER:-ubuntu}
+      private_key: ${INFRAAUDIT_SSH_KEY:-~/.ssh/id_ed25519}
+      look_for_keys: true
+      allow_agent: true
+
+http_services:
+  - id: public-https
+    url: https://example.com
+    method: GET
+    expected_status: [200]
+    timeout: 10
+    verify_tls: true
+    min_days_to_expiry: 30
+
+  - id: local-health
+    url: ${INFRAAUDIT_HTTP_URL:-http://127.0.0.1:8080/health}
+    method: GET
+    expected_status: [200, 204]
+    timeout: 5
+    verify_tls: false
+
+tcp_services:
+  - id: ssh-local
+    host: ${INFRAAUDIT_HOST_WEB:-127.0.0.1}
+    port: 22
+    timeout: 3
+
+  - id: https-example
+    host: example.com
+    port: 443
+    timeout: 5
+
+dns_records:
+  - id: example-a
+    name: example.com
+    record_type: A
+    expected: []  # vacío = solo reportar resolución actual

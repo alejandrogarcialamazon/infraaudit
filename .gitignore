@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv*/
+venv/
+.env
+.env.*
+!.env.example
+
+# Tooling
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Outputs
+out/
+results.json
+results.*.json
+*.html
+!docs/**
+!examples/**
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Secrets
+*.pem
+id_rsa
+id_ed25519
+*.key
+
+# Local agent configuration and private inventories
+.agents/
+.codex/
+.aws/
+.opencode/
+inventory.yml
+inventory.yaml
+inventory.*.yml
+inventory.*.yaml
+!examples/inventory.example.yml

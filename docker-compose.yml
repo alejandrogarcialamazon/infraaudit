@@ -1,0 +1,23 @@
+# Ejemplo de ejecución de InfraAudit en contenedor.
+# Monta el inventario y (opcional) claves SSH en modo solo lectura.
+
+services:
+  infraaudit:
+    build: .
+    image: infraaudit:local
+    working_dir: /work
+    volumes:
+      - ./examples:/work/examples:ro
+      - ./out:/work/out
+      # Descomentar para montar claves SSH del host (solo lectura):
+      # - ${HOME}/.ssh:/home/infraaudit/.ssh:ro
+    environment:
+      INFRAAUDIT_SSH_USER: ${INFRAAUDIT_SSH_USER:-ubuntu}
+      INFRAAUDIT_SSH_KEY: ${INFRAAUDIT_SSH_KEY:-/home/infraaudit/.ssh/id_ed25519}
+      INFRAAUDIT_HOST_WEB: ${INFRAAUDIT_HOST_WEB:-127.0.0.1}
+      INFRAAUDIT_HOST_DB: ${INFRAAUDIT_HOST_DB:-127.0.0.1}
+      INFRAAUDIT_HTTP_URL: ${INFRAAUDIT_HTTP_URL:-https://example.com}
+    # network_mode: host  # útil para alcanzar hosts locales vía SSH
+    command:
+      - validate
+      - /work/examples/inventory.example.yml
