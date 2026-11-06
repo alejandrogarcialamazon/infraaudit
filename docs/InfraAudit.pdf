@@ -195,7 +195,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 12 0 obj
-<< /Length 2051 >>
+<< /Length 2216 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
 (- Checks DNS CNAME/MX/TXT requieren dig en el PATH del auditor) Tj
@@ -231,23 +231,23 @@ T* (parcial confirmada se conserva incluso si falta completar otra comprobación.
 T* (mejora 02 para semántica, reportes y pruebas.) Tj
 T* () Tj
 T* () Tj
+T* (15. Configuración segura y transporte SSH) Tj
+T* (----------------------------------------) Tj
+T* () Tj
+T* (Las mejoras03 y04 protegen credenciales en errores/reportes y validan el esquema) Tj
+T* (del inventario antes de conectar. SSH utiliza un plazo total por comando y un) Tj
+T* (límite combinado de captura stdout/stderr mediante max_output_bytes. Una salida) Tj
+T* (truncada o timeout produce diagnóstico inconcluso. Ver los documentos específicos) Tj
+T* (MEJORA-03-PROTECCION-DE-SECRETOS.md, MEJORA-04-VALIDACION-ESTRICTA.md y) Tj
+T* (MEJORA-02-TRANSPORTE-SSH.md.) Tj
+T* () Tj
+T* () Tj
 T* (ARQUITECTURA DE INFRAAUDIT) Tj
 T* (============================) Tj
 T* () Tj
 T* () Tj
 T* (Visión) Tj
 T* (---------) Tj
-T* () Tj
-T* (InfraAudit es una CLI de auditoría read-only orientada a consultoría, DevOps y SRE.) Tj
-T* (Consume un inventario YAML, ejecuta checks no destructivos \(SSH + red local\) y produce) Tj
-T* (hallazgos \(Finding\) exportables a JSON, Markdown y HTML.) Tj
-T* () Tj
-T* () Tj
-T* (Diagrama lógico) Tj
-T* (------------------) Tj
-T* () Tj
-T* (```text) Tj
-T* (???????????????     ????????????????     ??????????????????????) Tj
 ET
 endstream
 endobj
@@ -258,10 +258,21 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 15 0 obj
-<< /Length 2011 >>
+<< /Length 2068 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
-(? inventory.yml??????? AuditEngine  ??????? reporters \(json/md ?) Tj
+() Tj
+T* (InfraAudit es una CLI de auditoría read-only orientada a consultoría, DevOps y SRE.) Tj
+T* (Consume un inventario YAML, ejecuta checks no destructivos \(SSH + red local\) y produce) Tj
+T* (hallazgos \(Finding\) exportables a JSON, Markdown y HTML.) Tj
+T* () Tj
+T* () Tj
+T* (Diagrama lógico) Tj
+T* (------------------) Tj
+T* () Tj
+T* (```text) Tj
+T* (???????????????     ????????????????     ??????????????????????) Tj
+T* (? inventory.yml??????? AuditEngine  ??????? reporters \(json/md ?) Tj
 T* (???????????????     ?              ?     ? html\)              ?) Tj
 T* (                    ?  CheckRegistry?     ??????????????????????) Tj
 T* (                    ????????????????) Tj
@@ -300,17 +311,6 @@ T* (  evidence,      # dict con datos crudos) Tj
 T* (\)) Tj
 T* (```) Tj
 T* () Tj
-T* () Tj
-T* (Extensibilidad) Tj
-T* (-----------------) Tj
-T* () Tj
-T* (1. Crear una subclase de BaseCheck.) Tj
-T* (2. Implementar execute\(ctx\) -> list[Finding].) Tj
-T* (3. Registrar la instancia en ALL__CHECKS o en un registry custom.) Tj
-T* (4. El engine la descubrirá automáticamente vía build_default_registry\(\).) Tj
-T* () Tj
-T* (Ver creating-checks.md.) Tj
-T* () Tj
 ET
 endstream
 endobj
@@ -321,10 +321,21 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 18 0 obj
-<< /Length 2047 >>
+<< /Length 2070 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
 () Tj
+T* (Extensibilidad) Tj
+T* (-----------------) Tj
+T* () Tj
+T* (1. Crear una subclase de BaseCheck.) Tj
+T* (2. Implementar execute\(ctx\) -> list[Finding].) Tj
+T* (3. Registrar la instancia en ALL__CHECKS o en un registry custom.) Tj
+T* (4. El engine la descubrirá automáticamente vía build_default_registry\(\).) Tj
+T* () Tj
+T* (Ver creating-checks.md.) Tj
+T* () Tj
+T* () Tj
 T* (Garantías read-only) Tj
 T* (----------------------) Tj
 T* () Tj
@@ -363,17 +374,6 @@ T* (3. Paramiko síncrono para portabilidad y control fino de timeouts \(asyncssh
 T* (evolución\).) Tj
 T* (4. Severidades fijas alineadas a prácticas de riesgo \(INFO?CRITICAL\) para priorizar) Tj
 T* (remediación.) Tj
-T* (5. Reportes autocontenidos \(HTML sin CDN\) para entregar al cliente offline.) Tj
-T* (6. Separación network vs host: checks de red salen desde la estación del auditor;) Tj
-T* (Linux/Docker vía SSH.) Tj
-T* () Tj
-T* () Tj
-T* (GUÍA: CREAR UN NUEVO CHECK) Tj
-T* (============================) Tj
-T* () Tj
-T* () Tj
-T* (Contrato) Tj
-T* (-----------) Tj
 ET
 endstream
 endobj
@@ -384,10 +384,21 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 21 0 obj
-<< /Length 1901 >>
+<< /Length 1952 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
-() Tj
+(5. Reportes autocontenidos \(HTML sin CDN\) para entregar al cliente offline.) Tj
+T* (6. Separación network vs host: checks de red salen desde la estación del auditor;) Tj
+T* (Linux/Docker vía SSH.) Tj
+T* () Tj
+T* () Tj
+T* (GUÍA: CREAR UN NUEVO CHECK) Tj
+T* (============================) Tj
+T* () Tj
+T* () Tj
+T* (Contrato) Tj
+T* (-----------) Tj
+T* () Tj
 T* (Todo check hereda de BaseCheck e implementa execute:) Tj
 T* () Tj
 T* (```python) Tj
@@ -426,17 +437,6 @@ T* (        ]) Tj
 T* (```) Tj
 T* () Tj
 T* () Tj
-T* (Registro) Tj
-T* (-----------) Tj
-T* () Tj
-T* (Añadir la instancia a la lista correspondiente:) Tj
-T* () Tj
-T* (```python) Tj
-T* (SRC/INFRAAUDIT/CHECKS/LINUX/__INIT__.PY) Tj
-T* (=========================================) Tj
-T* (ALL_LINUX_CHECKS = [) Tj
-T* (    ...,) Tj
-T* (    SwapCheck\(\),) Tj
 ET
 endstream
 endobj
@@ -447,10 +447,21 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 24 0 obj
-<< /Length 1651 >>
+<< /Length 1678 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
-(]) Tj
+(Registro) Tj
+T* (-----------) Tj
+T* () Tj
+T* (Añadir la instancia a la lista correspondiente:) Tj
+T* () Tj
+T* (```python) Tj
+T* (SRC/INFRAAUDIT/CHECKS/LINUX/__INIT__.PY) Tj
+T* (=========================================) Tj
+T* (ALL_LINUX_CHECKS = [) Tj
+T* (    ...,) Tj
+T* (    SwapCheck\(\),) Tj
+T* (]) Tj
 T* (```) Tj
 T* () Tj
 T* (O registrar en runtime:) Tj
@@ -489,17 +500,6 @@ T* (        ...) Tj
 T* (```) Tj
 T* () Tj
 T* (El engine debe pasar el objeto en extras \(ver AuditEngine._run_network_checks\).) Tj
-T* () Tj
-T* () Tj
-T* (Categorías y filtros CLI) Tj
-T* (---------------------------) Tj
-T* () Tj
-T* (```bash) Tj
-T* (infraaudit run inventory.yml --only linux) Tj
-T* (infraaudit run inventory.yml --only docker,network) Tj
-T* (infraaudit list-checks) Tj
-T* (```) Tj
-T* () Tj
 ET
 endstream
 endobj
@@ -510,10 +510,21 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 27 0 obj
-<< /Length 1772 >>
+<< /Length 1687 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
-(Por host se puede omitir checks:) Tj
+() Tj
+T* () Tj
+T* (Categorías y filtros CLI) Tj
+T* (---------------------------) Tj
+T* () Tj
+T* (```bash) Tj
+T* (infraaudit run inventory.yml --only linux) Tj
+T* (infraaudit run inventory.yml --only docker,network) Tj
+T* (infraaudit list-checks) Tj
+T* (```) Tj
+T* () Tj
+T* (Por host se puede omitir checks:) Tj
 T* () Tj
 T* (```yaml) Tj
 T* (hosts:) Tj
@@ -552,17 +563,6 @@ T* (-------------) Tj
 T* () Tj
 T* (- Python 3.12+) Tj
 T* (- Acceso SSH a los hosts auditados \(clave o password vía env\)) Tj
-T* (- Opcional: Docker Engine en hosts con docker: true) Tj
-T* (- Opcional: dig en la estación del auditor para DNS no-A/AAAA) Tj
-T* () Tj
-T* () Tj
-T* (Instalación local) Tj
-T* (--------------------) Tj
-T* () Tj
-T* (```bash) Tj
-T* (git clone https://github.com/alejandrogarcialamazon/infraaudit.git) Tj
-T* (cd infraaudit) Tj
-T* (python3.12 -m venv .venv) Tj
 ET
 endstream
 endobj
@@ -573,10 +573,21 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 30 0 obj
-<< /Length 1758 >>
+<< /Length 1747 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
-(source .venv/bin/activate) Tj
+(- Opcional: Docker Engine en hosts con docker: true) Tj
+T* (- Opcional: dig en la estación del auditor para DNS no-A/AAAA) Tj
+T* () Tj
+T* () Tj
+T* (Instalación local) Tj
+T* (--------------------) Tj
+T* () Tj
+T* (```bash) Tj
+T* (git clone https://github.com/alejandrogarcialamazon/infraaudit.git) Tj
+T* (cd infraaudit) Tj
+T* (python3.12 -m venv .venv) Tj
+T* (source .venv/bin/activate) Tj
 T* (pip install -U pip) Tj
 T* (pip install -e ".[dev]") Tj
 T* (```) Tj
@@ -615,17 +626,6 @@ T* (Ejecución) Tj
 T* (------------) Tj
 T* () Tj
 T* (```bash) Tj
-T* (VALIDAR INVENTARIO) Tj
-T* (====================) Tj
-T* (infraaudit validate examples/inventory.example.yml) Tj
-T* () Tj
-T* (AUDITORÍA COMPLETA) Tj
-T* (====================) Tj
-T* (infraaudit run examples/inventory.example.yml -o results.json) Tj
-T* () Tj
-T* (SOLO DOCKER) Tj
-T* (=============) Tj
-T* (infraaudit run examples/inventory.example.yml --only docker) Tj
 ET
 endstream
 endobj
@@ -636,10 +636,21 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 33 0 obj
-<< /Length 1615 >>
+<< /Length 1720 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
-() Tj
+(VALIDAR INVENTARIO) Tj
+T* (====================) Tj
+T* (infraaudit validate examples/inventory.example.yml) Tj
+T* () Tj
+T* (AUDITORÍA COMPLETA) Tj
+T* (====================) Tj
+T* (infraaudit run examples/inventory.example.yml -o results.json) Tj
+T* () Tj
+T* (SOLO DOCKER) Tj
+T* (=============) Tj
+T* (infraaudit run examples/inventory.example.yml --only docker) Tj
+T* () Tj
 T* (SOLO RED \(DESDE LA ESTACIÓN LOCAL\)) Tj
 T* (====================================) Tj
 T* (infraaudit run examples/inventory.example.yml --only network) Tj
@@ -678,17 +689,6 @@ T* (Desarrollo) Tj
 T* (-------------) Tj
 T* () Tj
 T* (```bash) Tj
-T* (pytest) Tj
-T* (ruff check src tests) Tj
-T* (mypy src) Tj
-T* (```) Tj
-T* () Tj
-T* () Tj
-T* (Seguridad) Tj
-T* (------------) Tj
-T* () Tj
-T* (- No almacenar passwords en el YAML en claro sin env vars.) Tj
-T* (- Preferir claves SSH con passphrase y ssh-agent.) Tj
 ET
 endstream
 endobj
@@ -699,10 +699,21 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 36 0 obj
-<< /Length 208 >>
+<< /Length 472 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
-(- Ejecutar siempre desde una estación de confianza \(la red se chequea localmente\).) Tj
+(pytest) Tj
+T* (ruff check src tests) Tj
+T* (mypy src) Tj
+T* (```) Tj
+T* () Tj
+T* () Tj
+T* (Seguridad) Tj
+T* (------------) Tj
+T* () Tj
+T* (- No almacenar passwords en el YAML en claro sin env vars.) Tj
+T* (- Preferir claves SSH con passphrase y ssh-agent.) Tj
+T* (- Ejecutar siempre desde una estación de confianza \(la red se chequea localmente\).) Tj
 T* (- Revisar skip_checks y --only antes de entregas a clientes.) Tj
 T* () Tj
 T* () Tj
@@ -730,34 +741,34 @@ xref
 0000005927 00000 n 
 0000006055 00000 n 
 0000006126 00000 n 
-0000008230 00000 n 
-0000008359 00000 n 
-0000008430 00000 n 
-0000010494 00000 n 
-0000010623 00000 n 
-0000010694 00000 n 
-0000012794 00000 n 
-0000012923 00000 n 
-0000012994 00000 n 
-0000014948 00000 n 
-0000015077 00000 n 
-0000015148 00000 n 
-0000016852 00000 n 
-0000016981 00000 n 
-0000017052 00000 n 
-0000018877 00000 n 
-0000019006 00000 n 
-0000019077 00000 n 
-0000020888 00000 n 
-0000021017 00000 n 
-0000021088 00000 n 
-0000022756 00000 n 
-0000022885 00000 n 
-0000022956 00000 n 
-0000023216 00000 n 
-0000023345 00000 n 
+0000008395 00000 n 
+0000008524 00000 n 
+0000008595 00000 n 
+0000010716 00000 n 
+0000010845 00000 n 
+0000010916 00000 n 
+0000013039 00000 n 
+0000013168 00000 n 
+0000013239 00000 n 
+0000015244 00000 n 
+0000015373 00000 n 
+0000015444 00000 n 
+0000017175 00000 n 
+0000017304 00000 n 
+0000017375 00000 n 
+0000019115 00000 n 
+0000019244 00000 n 
+0000019315 00000 n 
+0000021115 00000 n 
+0000021244 00000 n 
+0000021315 00000 n 
+0000023088 00000 n 
+0000023217 00000 n 
+0000023288 00000 n 
+0000023812 00000 n 
+0000023941 00000 n 
 trailer
 << /Size 39 /Root 1 0 R >>
 startxref
-23416
+24012
 %%EOF

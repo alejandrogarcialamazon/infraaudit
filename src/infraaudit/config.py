@@ -71,6 +71,7 @@ class HostConfig(ConfigModel):
     ssh: SSHAuth
     tags: list[str] = Field(default_factory=list)
     timeout: int = Field(default=30, ge=1, le=600)
+    max_output_bytes: int = Field(default=4194304, ge=1024, le=67108864)
     docker: bool = True
     skip_checks: list[str] = Field(default_factory=list)
 
@@ -98,8 +99,7 @@ class HttpService(ConfigModel):
                 parsed.scheme not in {"http", "https"}
                 or not parsed.hostname
                 or any(c.isspace() for c in value)
-                or (parsed.port is not None
-                and not 1 <= parsed.port <= 65535)
+                or (parsed.port is not None and not 1 <= parsed.port <= 65535)
             ):
                 raise ValueError
         except ValueError:

@@ -17,7 +17,7 @@ from infraaudit.models import (
     Severity,
 )
 from infraaudit.security import redact, secret_scope
-from infraaudit.ssh import CommandResult, SSHClient
+from infraaudit.ssh import CommandResult, SSHClient, SSHError
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,7 @@ class CheckContext:
                     "command": command,
                     "exit_code": result.exit_code,
                     "timed_out": result.timed_out,
+                    "truncated": result.truncated,
                     "stderr": result.stderr,
                 },
             )
@@ -119,6 +120,16 @@ class BaseCheck(ABC):
                 reason=str(exc),
                 diagnostic_evidence=exc.evidence,
                 findings=exc.findings,
+                duration_ms=round((time.perf_counter() - started) * 1000, 2),
+            )
+        except SSHError as exc:
+            return CheckResult(
+                check_id=self.check_id,
+                category=self.category,
+                target=target,
+                status=CheckStatus.NOT_EVALUATED,
+                reason=str(exc),
+                diagnostic_evidence={"exception_type": type(exc).__name__},
                 duration_ms=round((time.perf_counter() - started) * 1000, 2),
             )
         except Exception as exc:

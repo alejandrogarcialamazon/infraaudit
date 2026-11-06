@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import queue
+import threading
+import time
 from contextlib import AbstractContextManager
 from pathlib import Path
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 
 import paramiko
 
@@ -29,16 +32,18 @@ class CommandResult:
         stdout: str,
         stderr: str,
         timed_out: bool = False,
+        truncated: bool = False,
     ) -> None:
         self.command = command
         self.exit_code = exit_code
         self.stdout = stdout
         self.stderr = stderr
         self.timed_out = timed_out
+        self.truncated = truncated
 
     @property
     def ok(self) -> bool:
-        return self.exit_code == 0 and not self.timed_out
+        return self.exit_code == 0 and not self.timed_out and not self.truncated
 
     @property
     def output(self) -> str:
@@ -139,23 +144,94 @@ class SSHClient(AbstractContextManager["SSHClient"]):
             raise SSHError("Cliente SSH no conectado")
 
         self._assert_readonly(command)
-        effective_timeout = timeout or self.host.timeout
-        logger.debug("[%s] RUN: %s", self.host.id, command)
+        effective_timeout = self.host.timeout if timeout is None else timeout
+        if effective_timeout <= 0:
+            raise ValueError("El timeout debe ser positivo")
+        deadline = time.monotonic() + effective_timeout
+        client = self._client
+        opened: queue.Queue[Any] = queue.Queue(maxsize=1)
 
+        def open_command() -> None:
+            try:
+                opened.put(client.exec_command(command, timeout=effective_timeout))
+            except Exception as exc:
+                opened.put(exc)
+
+        # Paramiko puede esperar indefinidamente el ACK de exec aun con timeout de canal.
+        # El hilo daemon permite acotar también esa espera y cerrar la sesión si no responde.
+        worker = threading.Thread(target=open_command, daemon=True, name="infraaudit-ssh-exec")
+        worker.start()
         try:
-            _stdin, stdout, stderr = self._client.exec_command(
-                command,
-                timeout=effective_timeout,
-            )
-            exit_code = stdout.channel.recv_exit_status()
-            out = stdout.read().decode("utf-8", errors="replace")
-            err = stderr.read().decode("utf-8", errors="replace")
-            return CommandResult(command, exit_code, out, err)
-        except TimeoutError as exc:
-            logger.warning("[%s] Timeout ejecutando: %s", self.host.id, command)
-            return CommandResult(command, -1, "", str(exc), timed_out=True)
+            streams = opened.get(timeout=max(0.001, deadline - time.monotonic()))
+        except queue.Empty:
+            self.close()
+            return CommandResult(command, -1, "", "Timeout abriendo comando SSH", timed_out=True)
+        except BaseException:
+            self.close()
+            raise
+        if isinstance(streams, Exception):
+            self.close()
+            if isinstance(streams, TimeoutError):
+                return CommandResult(
+                    command, -1, "", "Timeout abriendo comando SSH", timed_out=True
+                )
+            raise SSHError("No se pudo abrir el comando SSH") from streams
+        stdin, stdout, _stderr = streams
+        channel = stdout.channel
+        chunks: list[bytearray] = [bytearray(), bytearray()]
+        retained = 0
+        truncated = False
+        try:
+            stdin.close()
+            while True:
+                if time.monotonic() >= deadline:
+                    return CommandResult(
+                        command,
+                        -1,
+                        chunks[0].decode("utf-8", errors="replace"),
+                        chunks[1].decode("utf-8", errors="replace"),
+                        timed_out=True,
+                        truncated=truncated,
+                    )
+                received = False
+                for index, ready, read in (
+                    (0, channel.recv_ready, channel.recv),
+                    (1, channel.recv_stderr_ready, channel.recv_stderr),
+                ):
+                    if ready():
+                        data = read(32768)
+                        available = max(0, self.host.max_output_bytes - retained)
+                        chunks[index].extend(data[:available])
+                        retained += min(len(data), available)
+                        truncated = truncated or len(data) > available
+                        received = True
+                drained = not channel.recv_ready() and not channel.recv_stderr_ready()
+                if (
+                    channel.exit_status_ready()
+                    and drained
+                    and (channel.eof_received or channel.closed)
+                ):
+                    code = channel.recv_exit_status()
+                    if code < 0:
+                        raise SSHError("Canal SSH cerrado sin estado de salida")
+                    return CommandResult(
+                        command,
+                        code,
+                        chunks[0].decode("utf-8", errors="replace"),
+                        chunks[1].decode("utf-8", errors="replace"),
+                        truncated=truncated,
+                    )
+                if channel.closed and drained:
+                    raise SSHError("Canal SSH cerrado antes de completar el comando")
+                if not received:
+                    time.sleep(min(0.01, max(0, deadline - time.monotonic())))
         except (paramiko.SSHException, OSError) as exc:
-            raise SSHError(f"Error ejecutando '{command}': {exc}") from exc
+            raise SSHError("Error leyendo el canal SSH") from exc
+        finally:
+            try:
+                channel.close()
+            except (paramiko.SSHException, OSError):
+                logger.debug("No se pudo cerrar limpiamente el canal de %s", self.host.id)
 
     def _assert_readonly(self, command: str) -> None:
         lowered = command.lower().strip()

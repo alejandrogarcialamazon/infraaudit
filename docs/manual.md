@@ -149,3 +149,12 @@ y la CLI devuelve 1 tras guardar evidencia. Ver
 Los errores del auditor no generan vulnerabilidades HIGH/CRITICAL. La evidencia
 parcial confirmada se conserva incluso si falta completar otra comprobación. Ver
 [mejora 02](MEJORA-02-SEGURIDAD-E-INCONCLUSOS.md) para semántica, reportes y pruebas.
+
+## 15. Configuración segura y transporte SSH
+
+Las mejoras03 y04 protegen credenciales en errores/reportes y validan el esquema
+del inventario antes de conectar. SSH utiliza un plazo total por comando y un
+límite combinado de captura stdout/stderr mediante max_output_bytes. Una salida
+truncada o timeout produce diagnóstico inconcluso. Ver los documentos específicos
+MEJORA-03-PROTECCION-DE-SECRETOS.md, MEJORA-04-VALIDACION-ESTRICTA.md y
+MEJORA-02-TRANSPORTE-SSH.md.

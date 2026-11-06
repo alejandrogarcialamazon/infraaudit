@@ -53,9 +53,9 @@ Python declaradas. El estado actual se consulta en la pestaña Actions.
 2. La mejora 01 incorpora estados y cobertura para evitar resultados saludables
    ante fuentes fallidas o insuficientes. Ver MEJORA-01-ESTADOS-Y-COBERTURA.md.
    Los plugins externos deben adoptar el contrato de evidencia.
-3. El transporte SSH espera el exit status antes de drenar stdout/stderr. Comandos
-   con mucha salida pueden atascarse por la ventana del canal; hace falta validar
-   streaming y timeout total antes de auditorías de gran tamaño.
+3. El transporte SSH ahora drena stdout/stderr con plazo total por comando y
+   límite compartido de evidencia. Ver MEJORA-02-TRANSPORTE-SSH.md. El proceso
+   remoto puede continuar tras cerrar el canal: el timeout limita la espera local.
 4. La CPU se estima desde contadores acumulados y no mide utilización instantánea.
    NTP requiere revisar la interpretación de sincronización y sus fuentes.
 5. DNS CNAME/MX/TXT y cualquier consulta a nameserver explícito requieren `dig`.

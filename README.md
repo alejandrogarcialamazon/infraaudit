@@ -105,6 +105,7 @@ Documentación detallada:
 - [Mejora 02: seguridad e inconclusos](docs/MEJORA-02-SEGURIDAD-E-INCONCLUSOS.md)
 - [Mejora 03: protección de secretos](docs/MEJORA-03-PROTECCION-DE-SECRETOS.md)
 - [Mejora 04: validación estricta](docs/MEJORA-04-VALIDACION-ESTRICTA.md)
+- [Transporte SSH: plazos y evidencia acotada](docs/MEJORA-02-TRANSPORTE-SSH.md)
 
 ## Docker
 
