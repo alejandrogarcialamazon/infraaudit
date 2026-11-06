@@ -99,7 +99,6 @@ Documentación detallada:
 - [Instalación y ejecución](docs/installation.md)
 - [Manual PDF](docs/InfraAudit.pdf)
 - [Evaluación y límites de la beta](docs/review.md)
-- [GitHub con Codex y OpenCode](docs/agent-github.md)
 
 ## Docker
 
