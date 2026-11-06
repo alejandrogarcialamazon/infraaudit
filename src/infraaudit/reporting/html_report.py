@@ -7,6 +7,7 @@ from typing import Any
 
 from infraaudit.models import AuditReport, Finding, Severity
 from infraaudit.reporting.base import BaseReporter
+from infraaudit.security import redact
 
 _COLORS = {
     Severity.CRITICAL: "#7f1d1d",
@@ -25,6 +26,7 @@ class HtmlReporter(BaseReporter):
     format_name = "html"
 
     def render(self, report: AuditReport) -> str:
+        report = AuditReport.model_validate(redact(report.model_dump()))
         summary = report.summary()
         severity_cards = "".join(
             f'<div class="card" style="border-color:{_COLORS[Severity(sev)]}">'

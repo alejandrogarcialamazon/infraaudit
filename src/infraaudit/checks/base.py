@@ -16,6 +16,7 @@ from infraaudit.models import (
     FindingKind,
     Severity,
 )
+from infraaudit.security import redact, secret_scope
 from infraaudit.ssh import CommandResult, SSHClient
 
 logger = logging.getLogger(__name__)
@@ -88,6 +89,10 @@ class BaseCheck(ABC):
     finding_kind: FindingKind = FindingKind.OPERATIONAL
 
     def run(self, ctx: CheckContext) -> CheckResult:
+        with secret_scope(ctx.inventory.secret_values()):
+            return CheckResult.model_validate(redact(self._run(ctx).model_dump()))
+
+    def _run(self, ctx: CheckContext) -> CheckResult:
         """Ejecuta el check con medición de duración y captura de errores."""
         target = ctx.target or (ctx.host.id if ctx.host else "unknown")
         started = time.perf_counter()
@@ -118,7 +123,7 @@ class BaseCheck(ABC):
             )
         except Exception as exc:
             duration_ms = (time.perf_counter() - started) * 1000
-            logger.exception("Check %s falló en %s", self.check_id, target)
+            logger.error("Check %s falló en %s (%s)", self.check_id, target, type(exc).__name__)
             return CheckResult(
                 check_id=self.check_id,
                 category=self.category,

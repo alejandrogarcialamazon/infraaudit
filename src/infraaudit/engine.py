@@ -11,6 +11,7 @@ from infraaudit.checks.base import CheckContext
 from infraaudit.checks.registry import CheckRegistry, build_default_registry
 from infraaudit.config import Inventory, load_inventory
 from infraaudit.models import AuditReport, CheckCategory, CheckResult, CheckStatus, HostResult
+from infraaudit.security import redact, secret_scope
 from infraaudit.ssh import SSHClient, SSHError
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,10 @@ class AuditEngine:
         return cls(inventory=inventory, categories=categories)
 
     def run(self, inventory_path: str = "") -> AuditReport:
+        with secret_scope(self.inventory.secret_values()):
+            return AuditReport.model_validate(redact(self._run(inventory_path).model_dump()))
+
+    def _run(self, inventory_path: str = "") -> AuditReport:
         report = AuditReport(
             inventory_path=inventory_path,
             started_at=datetime.now(UTC),
@@ -110,7 +115,7 @@ class AuditEngine:
                     logger.info("Ejecutando %s en %s", check.check_id, host.id)
                     host_result.check_results.append(check.run(ctx))
         except SSHError as exc:
-            logger.error("Conexión fallida a %s: %s", host.id, exc)
+            logger.error("Conexión SSH fallida a %s", host.id)
             host_result.connection_error = str(exc)
             recorded = {r.check_id for r in host_result.check_results}
             for check in selected:

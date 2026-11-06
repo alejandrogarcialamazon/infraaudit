@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from infraaudit.models import AuditReport, Severity
 from infraaudit.reporting.base import BaseReporter
+from infraaudit.security import redact
 
 _SEV_ORDER = [
     Severity.CRITICAL,
@@ -18,6 +19,7 @@ class MarkdownReporter(BaseReporter):
     format_name = "markdown"
 
     def render(self, report: AuditReport) -> str:
+        report = AuditReport.model_validate(redact(report.model_dump()))
         summary = report.summary()
         lines: list[str] = [
             "# InfraAudit Report",

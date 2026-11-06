@@ -5,6 +5,13 @@ from __future__ import annotations
 import logging
 import sys
 
+from infraaudit.security import redact_text
+
+
+class RedactingFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        return redact_text(super().format(record))
+
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     """Configura el logger raíz de InfraAudit."""
@@ -17,7 +24,7 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
 
     handler = logging.StreamHandler(sys.stderr)
     handler.setFormatter(
-        logging.Formatter(
+        RedactingFormatter(
             fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )

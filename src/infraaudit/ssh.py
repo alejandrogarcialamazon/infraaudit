@@ -111,7 +111,7 @@ class SSHClient(AbstractContextManager["SSHClient"]):
         }
 
         if auth.password:
-            connect_kwargs["password"] = auth.password
+            connect_kwargs["password"] = auth.password.get_secret_value()
 
         pkey = self._load_private_key(auth)
         if pkey is not None:
@@ -174,7 +174,9 @@ class SSHClient(AbstractContextManager["SSHClient"]):
         if not key_path.is_file():
             raise SSHError(f"Clave privada no encontrada: {key_path}")
 
-        passphrase = auth.private_key_passphrase
+        passphrase = (
+            auth.private_key_passphrase.get_secret_value() if auth.private_key_passphrase else None
+        )
         loaders = (
             paramiko.Ed25519Key,
             paramiko.RSAKey,

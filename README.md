@@ -103,6 +103,8 @@ Documentación detallada:
 - [Evaluación y límites de la beta](docs/review.md)
 - [Mejora 01: estados y cobertura](docs/MEJORA-01-ESTADOS-Y-COBERTURA.md)
 - [Mejora 02: seguridad e inconclusos](docs/MEJORA-02-SEGURIDAD-E-INCONCLUSOS.md)
+- [Mejora 03: protección de secretos](docs/MEJORA-03-PROTECCION-DE-SECRETOS.md)
+- [Mejora 04: validación estricta](docs/MEJORA-04-VALIDACION-ESTRICTA.md)
 
 ## Docker
 
