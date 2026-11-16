@@ -102,6 +102,8 @@ class SSHClient(AbstractContextManager["SSHClient"]):
         auth = self.host.ssh
         client = paramiko.SSHClient()
         client.load_system_host_keys()
+        if auth.known_hosts:
+            client.load_host_keys(str(Path(auth.known_hosts).expanduser()))
         client.set_missing_host_key_policy(paramiko.RejectPolicy())
 
         connect_kwargs: dict[str, object] = {

@@ -195,7 +195,7 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 12 0 obj
-<< /Length 2216 >>
+<< /Length 2449 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
 (- Checks DNS CNAME/MX/TXT requieren dig en el PATH del auditor) Tj
@@ -242,12 +242,12 @@ T* (MEJORA-03-PROTECCION-DE-SECRETOS.md, MEJORA-04-VALIDACION-ESTRICTA.md y) Tj
 T* (MEJORA-02-TRANSPORTE-SSH.md.) Tj
 T* () Tj
 T* () Tj
-T* (ARQUITECTURA DE INFRAAUDIT) Tj
-T* (============================) Tj
+T* (16. Mejoras 05 a 15 ? versión 1.1.0) Tj
+T* (--------------------------------------) Tj
 T* () Tj
-T* () Tj
-T* (Visión) Tj
-T* (---------) Tj
+T* (Los documentos MEJORA-05 a MEJORA-15 describen CPU/NTP, Docker, HTTP/TLS, DNS,) Tj
+T* (integraciones, políticas, doctor, filtros, concurrencia, reportes y distribución.) Tj
+T* (Consultar VALIDACION-05-15.md para pruebas y límites. Comandos nuevos:) Tj
 ET
 endstream
 endobj
@@ -258,10 +258,29 @@ endobj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
 15 0 obj
-<< /Length 2068 >>
+<< /Length 2112 >>
 stream
 BT /F1 10 Tf 50 780 Td 14 TL
 () Tj
+T* (```bash) Tj
+T* (infraaudit doctor inventory.yml) Tj
+T* (infraaudit run inventory.yml --check linux.cpu --dry-run) Tj
+T* (infraaudit run inventory.yml --workers 4 --fail-on high --summary-json) Tj
+T* (infraaudit diff previous.json current.json) Tj
+T* (```) Tj
+T* () Tj
+T* (Los filtros --host/--tag se aplican a destinos SSH y excluyen servicios de red) Tj
+T* (independientes. CTRL+C guarda evidencia parcial y devuelve130. --incomplete allow) Tj
+T* (acepta cobertura parcial explícitamente; nunca convierte una cancelación en éxito.) Tj
+T* () Tj
+T* () Tj
+T* (ARQUITECTURA DE INFRAAUDIT) Tj
+T* (============================) Tj
+T* () Tj
+T* () Tj
+T* (Visión) Tj
+T* (---------) Tj
+T* () Tj
 T* (InfraAudit es una CLI de auditoría read-only orientada a consultoría, DevOps y SRE.) Tj
 T* (Consume un inventario YAML, ejecuta checks no destructivos \(SSH + red local\) y produce) Tj
 T* (hallazgos \(Finding\) exportables a JSON, Markdown y HTML.) Tj
@@ -292,7 +311,20 @@ T* (| cli.py | Interfaz Typer \(validate, run, report, list-checks\) |) Tj
 T* (| config.py | Carga YAML, expansión ${ENV}, validación Pydantic |) Tj
 T* (| models.py | Finding, CheckResult, HostResult, AuditReport, severidades |) Tj
 T* (| ssh.py | Cliente Paramiko con timeouts y deny-list de comandos destructivos |) Tj
-T* (| engine.py | Orquestación por host/categoría |) Tj
+ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 15 0 R /Resources << /Font << /F1 17 0 R >> >> >>
+endobj
+17 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+18 0 obj
+<< /Length 1825 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(| engine.py | Orquestación por host/categoría |) Tj
 T* (| checks/ | Plugins de checks \(BaseCheck + registry\) |) Tj
 T* (| reporting/ | Serialización a JSON/Markdown/HTML |) Tj
 T* () Tj
@@ -311,20 +343,7 @@ T* (  evidence,      # dict con datos crudos) Tj
 T* (\)) Tj
 T* (```) Tj
 T* () Tj
-ET
-endstream
-endobj
-16 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 15 0 R /Resources << /Font << /F1 17 0 R >> >> >>
-endobj
-17 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-18 0 obj
-<< /Length 2070 >>
-stream
-BT /F1 10 Tf 50 780 Td 14 TL
-() Tj
+T* () Tj
 T* (Extensibilidad) Tj
 T* (-----------------) Tj
 T* () Tj
@@ -355,7 +374,20 @@ T* (4. report ? regenera Markdown/HTML desde el JSON.) Tj
 T* () Tj
 T* () Tj
 T* (Timeouts y errores) Tj
-T* (---------------------) Tj
+ET
+endstream
+endobj
+19 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 18 0 R /Resources << /Font << /F1 20 0 R >> >> >>
+endobj
+20 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+21 0 obj
+<< /Length 2097 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(---------------------) Tj
 T* () Tj
 T* (- Timeout SSH configurable por host \(timeout\) y global \(default_timeout\).) Tj
 T* (- HTTP/TCP con timeouts propios.) Tj
@@ -374,20 +406,7 @@ T* (3. Paramiko síncrono para portabilidad y control fino de timeouts \(asyncssh
 T* (evolución\).) Tj
 T* (4. Severidades fijas alineadas a prácticas de riesgo \(INFO?CRITICAL\) para priorizar) Tj
 T* (remediación.) Tj
-ET
-endstream
-endobj
-19 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 18 0 R /Resources << /Font << /F1 20 0 R >> >> >>
-endobj
-20 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-21 0 obj
-<< /Length 1952 >>
-stream
-BT /F1 10 Tf 50 780 Td 14 TL
-(5. Reportes autocontenidos \(HTML sin CDN\) para entregar al cliente offline.) Tj
+T* (5. Reportes autocontenidos \(HTML sin CDN\) para entregar al cliente offline.) Tj
 T* (6. Separación network vs host: checks de red salen desde la estación del auditor;) Tj
 T* (Linux/Docker vía SSH.) Tj
 T* () Tj
@@ -418,7 +437,20 @@ T* (        result = ctx.ssh.run\("cat /proc/swaps"\)) Tj
 T* (        lines = [ln for ln in result.stdout.splitlines\(\)[1:] if ln.strip\(\)]) Tj
 T* (        if not lines:) Tj
 T* (            return [) Tj
-T* (                self.finding\() Tj
+ET
+endstream
+endobj
+22 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 21 0 R /Resources << /Font << /F1 23 0 R >> >> >>
+endobj
+23 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+24 0 obj
+<< /Length 1755 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(                self.finding\() Tj
 T* (                    severity=Severity.LOW,) Tj
 T* (                    target=ctx.host.id,) Tj
 T* (                    message="Sin swap configurado",) Tj
@@ -437,20 +469,7 @@ T* (        ]) Tj
 T* (```) Tj
 T* () Tj
 T* () Tj
-ET
-endstream
-endobj
-22 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 21 0 R /Resources << /Font << /F1 23 0 R >> >> >>
-endobj
-23 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-24 0 obj
-<< /Length 1678 >>
-stream
-BT /F1 10 Tf 50 780 Td 14 TL
-(Registro) Tj
+T* (Registro) Tj
 T* (-----------) Tj
 T* () Tj
 T* (Añadir la instancia a la lista correspondiente:) Tj
@@ -481,7 +500,20 @@ T* (2. Evidencia útil: incluir salida parseada y cruda cuando aporte.) Tj
 T* (3. Recomendación accionable: qué hacer, no solo qué está mal.) Tj
 T* (4. Severidad coherente con umbrales de ctx.thresholds cuando aplique.) Tj
 T* (5. Timeouts: confiar en ctx.ssh.run / timeouts del inventario.) Tj
-T* (6. Tests: mockear SSHClient.run con CommandResult.) Tj
+ET
+endstream
+endobj
+25 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 24 0 R /Resources << /Font << /F1 26 0 R >> >> >>
+endobj
+26 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+27 0 obj
+<< /Length 1703 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(6. Tests: mockear SSHClient.run con CommandResult.) Tj
 T* (7. IDs estables: categoria.nombre \(ej. linux.swap, docker.security\).) Tj
 T* () Tj
 T* () Tj
@@ -500,20 +532,7 @@ T* (        ...) Tj
 T* (```) Tj
 T* () Tj
 T* (El engine debe pasar el objeto en extras \(ver AuditEngine._run_network_checks\).) Tj
-ET
-endstream
-endobj
-25 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 24 0 R /Resources << /Font << /F1 26 0 R >> >> >>
-endobj
-26 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-27 0 obj
-<< /Length 1687 >>
-stream
-BT /F1 10 Tf 50 780 Td 14 TL
-() Tj
+T* () Tj
 T* () Tj
 T* (Categorías y filtros CLI) Tj
 T* (---------------------------) Tj
@@ -544,7 +563,20 @@ T* (Un resultado vacío del plugin se considera no evaluable. Ver la) Tj
 T* (mejora 01.) Tj
 T* () Tj
 T* () Tj
-T* (Clasificación de seguridad) Tj
+ET
+endstream
+endobj
+28 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 27 0 R /Resources << /Font << /F1 29 0 R >> >> >>
+endobj
+29 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+30 0 obj
+<< /Length 1509 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(Clasificación de seguridad) Tj
 T* (-----------------------------) Tj
 T* () Tj
 T* (Declarar finding_kind = FindingKind.SECURITY en checks que evalúan controles de) Tj
@@ -563,20 +595,7 @@ T* (-------------) Tj
 T* () Tj
 T* (- Python 3.12+) Tj
 T* (- Acceso SSH a los hosts auditados \(clave o password vía env\)) Tj
-ET
-endstream
-endobj
-28 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 27 0 R /Resources << /Font << /F1 29 0 R >> >> >>
-endobj
-29 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-30 0 obj
-<< /Length 1747 >>
-stream
-BT /F1 10 Tf 50 780 Td 14 TL
-(- Opcional: Docker Engine en hosts con docker: true) Tj
+T* (- Opcional: Docker Engine en hosts con docker: true) Tj
 T* (- Opcional: dig en la estación del auditor para DNS no-A/AAAA) Tj
 T* () Tj
 T* () Tj
@@ -607,7 +626,20 @@ T* () Tj
 T* (| Variable | Uso |) Tj
 T* (| --- | --- |) Tj
 T* (| INFRAAUDIT_SSH_USER | Usuario SSH |) Tj
-T* (| INFRAAUDIT_SSH_KEY | Ruta a clave privada |) Tj
+ET
+endstream
+endobj
+31 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 30 0 R /Resources << /Font << /F1 32 0 R >> >> >>
+endobj
+32 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+33 0 obj
+<< /Length 2006 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(| INFRAAUDIT_SSH_KEY | Ruta a clave privada |) Tj
 T* (| INFRAAUDIT_SSH_PASSWORD | Password \(alternativa\) |) Tj
 T* (| INFRAAUDIT_HOST_WEB | Host de ejemplo web |) Tj
 T* (| INFRAAUDIT_HOST_DB | Host de ejemplo DB |) Tj
@@ -626,20 +658,7 @@ T* (Ejecución) Tj
 T* (------------) Tj
 T* () Tj
 T* (```bash) Tj
-ET
-endstream
-endobj
-31 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 30 0 R /Resources << /Font << /F1 32 0 R >> >> >>
-endobj
-32 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-33 0 obj
-<< /Length 1720 >>
-stream
-BT /F1 10 Tf 50 780 Td 14 TL
-(VALIDAR INVENTARIO) Tj
+T* (VALIDAR INVENTARIO) Tj
 T* (====================) Tj
 T* (infraaudit validate examples/inventory.example.yml) Tj
 T* () Tj
@@ -670,7 +689,20 @@ T* (| 1 | Inventario inválido, conexión SSH fallida o check con error |) Tj
 T* (| 2 | Hallazgos CRITICAL o argumentos CLI inválidos \(consultar stderr\) |) Tj
 T* () Tj
 T* () Tj
-T* (Docker) Tj
+ET
+endstream
+endobj
+34 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 33 0 R /Resources << /Font << /F1 35 0 R >> >> >>
+endobj
+35 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+36 0 obj
+<< /Length 1077 >>
+stream
+BT /F1 10 Tf 50 780 Td 14 TL
+(Docker) Tj
 T* (---------) Tj
 T* () Tj
 T* (```bash) Tj
@@ -689,20 +721,7 @@ T* (Desarrollo) Tj
 T* (-------------) Tj
 T* () Tj
 T* (```bash) Tj
-ET
-endstream
-endobj
-34 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 33 0 R /Resources << /Font << /F1 35 0 R >> >> >>
-endobj
-35 0 obj
-<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
-endobj
-36 0 obj
-<< /Length 472 >>
-stream
-BT /F1 10 Tf 50 780 Td 14 TL
-(pytest) Tj
+T* (pytest) Tj
 T* (ruff check src tests) Tj
 T* (mypy src) Tj
 T* (```) Tj
@@ -741,34 +760,34 @@ xref
 0000005927 00000 n 
 0000006055 00000 n 
 0000006126 00000 n 
-0000008395 00000 n 
-0000008524 00000 n 
-0000008595 00000 n 
-0000010716 00000 n 
-0000010845 00000 n 
-0000010916 00000 n 
-0000013039 00000 n 
-0000013168 00000 n 
-0000013239 00000 n 
-0000015244 00000 n 
-0000015373 00000 n 
-0000015444 00000 n 
-0000017175 00000 n 
-0000017304 00000 n 
-0000017375 00000 n 
-0000019115 00000 n 
-0000019244 00000 n 
-0000019315 00000 n 
-0000021115 00000 n 
-0000021244 00000 n 
-0000021315 00000 n 
-0000023088 00000 n 
-0000023217 00000 n 
-0000023288 00000 n 
-0000023812 00000 n 
-0000023941 00000 n 
+0000008628 00000 n 
+0000008757 00000 n 
+0000008828 00000 n 
+0000010993 00000 n 
+0000011122 00000 n 
+0000011193 00000 n 
+0000013071 00000 n 
+0000013200 00000 n 
+0000013271 00000 n 
+0000015421 00000 n 
+0000015550 00000 n 
+0000015621 00000 n 
+0000017429 00000 n 
+0000017558 00000 n 
+0000017629 00000 n 
+0000019385 00000 n 
+0000019514 00000 n 
+0000019585 00000 n 
+0000021147 00000 n 
+0000021276 00000 n 
+0000021347 00000 n 
+0000023406 00000 n 
+0000023535 00000 n 
+0000023606 00000 n 
+0000024736 00000 n 
+0000024865 00000 n 
 trailer
 << /Size 39 /Root 1 0 R >>
 startxref
-24012
+24936
 %%EOF

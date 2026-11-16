@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import time
 
 from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
 from infraaudit.models import CheckCategory, Finding, Severity
@@ -112,17 +113,32 @@ class CpuCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        # Snapshot read-only via /proc/stat delta approximation with top batch
-        result = ctx.command(
-            "grep 'cpu ' /proc/stat | awk '{usage=($2+$4)*100/($2+$4+$5)} END {print usage}'"
-        )
+
+        def counters(text: str) -> tuple[int, int]:
+            row = next((line.split() for line in text.splitlines() if line.startswith("cpu ")), [])
+            if len(row) < 9:
+                raise CheckNotEvaluableError("Faltan contadores agregados de CPU")
+            try:
+                values = [int(value) for value in row[1:9]]
+            except ValueError as exc:
+                raise CheckNotEvaluableError("Contadores CPU inválidos") from exc
+            if any(value < 0 for value in values):
+                raise CheckNotEvaluableError("Contadores CPU negativos")
+            return sum(values), values[3] + values[4]
+
+        first = counters(ctx.command("cat /proc/stat").output)
+        started = time.monotonic()
+        time.sleep(0.2)
+        second = counters(ctx.command("cat /proc/stat").output)
+        interval = time.monotonic() - started
+        delta, idle = second[0] - first[0], second[1] - first[1]
+        if delta <= 0 or not 0 <= idle <= delta:
+            raise CheckNotEvaluableError("Muestras CPU sin delta válido")
+        usage = 100 * (delta - idle) / delta
         nproc = ctx.command("nproc")
         if not nproc.output.isdigit() or int(nproc.output) < 1:
             raise CheckNotEvaluableError("Número de CPU inválido")
         cores = int(nproc.output)
-        usage = float(result.output) if result.ok and result.output else 0.0
-        if not math.isfinite(usage) or not 0 <= usage <= 100:
-            raise CheckNotEvaluableError("Porcentaje de CPU inválido")
         thr = ctx.thresholds
         if usage >= thr.cpu_crit_percent:
             severity = Severity.CRITICAL
@@ -139,7 +155,12 @@ class CpuCheck(BaseCheck):
                 target=ctx.host.id,
                 message=f"Uso de CPU: {usage:.1f}% ({cores} cores)",
                 recommendation=recommendation,
-                evidence={"cpu_percent": round(usage, 2), "cores": cores},
+                evidence={
+                    "cpu_percent": round(usage, 2),
+                    "cores": cores,
+                    "sample_seconds": round(interval, 3),
+                    "total_delta": delta,
+                },
             )
         ]
 

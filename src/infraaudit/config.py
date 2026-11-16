@@ -51,6 +51,7 @@ class SSHAuth(ConfigModel):
     username: str = Field(min_length=1)
     password: SecretStr | None = Field(default=None, repr=False, exclude=True)
     private_key: str | None = None
+    known_hosts: str | None = None
     private_key_passphrase: SecretStr | None = Field(default=None, repr=False, exclude=True)
     look_for_keys: bool = True
     allow_agent: bool = True
@@ -85,7 +86,10 @@ class HttpService(ConfigModel):
     expected_status: list[int] = Field(default_factory=lambda: [200])
     timeout: float = Field(default=10.0, ge=0.5, le=120.0)
     verify_tls: bool = True
-    min_days_to_expiry: int = Field(default=30, ge=1)
+    min_days_to_expiry: int | None = Field(default=None, ge=1)
+    ca_bundle: str | None = None
+    follow_redirects: bool = True
+    inspect_tls: bool = True
     headers: dict[str, str] = Field(default_factory=dict, repr=False)
 
     @field_validator("url")
@@ -131,6 +135,8 @@ class DnsRecord(ConfigModel):
     record_type: Literal["A", "AAAA", "CNAME", "MX", "TXT"] = "A"
     expected: list[str] = Field(default_factory=list)
     nameserver: str | None = None
+    timeout: float = Field(default=5.0, ge=0.1, le=60)
+    port: int = Field(default=53, ge=1, le=65535)
 
 
 class Thresholds(ConfigModel):

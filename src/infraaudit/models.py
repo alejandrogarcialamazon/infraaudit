@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, computed_field, model_validator
+
+from infraaudit import __version__
 
 
 class Severity(StrEnum):
@@ -62,6 +65,7 @@ class Assessment(StrEnum):
 class Finding(BaseModel):
     """Hallazgo individual producido por un check."""
 
+    rule_id: str = ""
     severity: Severity
     kind: FindingKind = FindingKind.UNCLASSIFIED
     check: str
@@ -71,6 +75,12 @@ class Finding(BaseModel):
     evidence: dict[str, Any] = Field(default_factory=dict)
     category: CheckCategory | None = None
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def finding_id(self) -> str:
+        key = "\0".join((self.check, self.target, self.kind.value, self.rule_id))
+        return hashlib.sha256(key.encode()).hexdigest()[:24]
 
     def severity_rank(self) -> int:
         return SEVERITY_ORDER[self.severity]
@@ -158,13 +168,17 @@ class HostResult(BaseModel):
 class AuditReport(BaseModel):
     """Informe completo de una corrida de InfraAudit."""
 
-    schema_version: str = "2.1"
+    schema_version: str = "3.0"
+    cancelled: bool = False
+    inventory_fingerprint: str = ""
+    execution_workers: int = 1
+    selection: dict[str, list[str]] = Field(default_factory=dict)
     inventory_path: str
     started_at: datetime
     finished_at: datetime | None = None
     host_results: list[HostResult] = Field(default_factory=list)
     network_results: list[CheckResult] = Field(default_factory=list)
-    tool_version: str = "1.0.0"
+    tool_version: str = __version__
     categories: list[CheckCategory] = Field(default_factory=list)
 
     @property
@@ -195,7 +209,8 @@ class AuditReport(BaseModel):
         completed = statuses[CheckStatus.COMPLETED.value]
         connection_errors = sum(h.connection_error is not None for h in self.host_results)
         complete = (
-            selected > 0
+            not self.cancelled
+            and selected > 0
             and completed == selected
             and connection_errors == 0
             and self.finished_at is not None

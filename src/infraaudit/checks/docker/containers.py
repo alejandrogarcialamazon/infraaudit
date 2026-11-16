@@ -9,10 +9,33 @@ from typing import Any
 
 from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
 from infraaudit.models import CheckCategory, Finding, FindingKind, Severity
+from infraaudit.ssh import CommandResult
+
+
+def _docker_command(ctx: CheckContext, command: str, *, allow_empty: bool = False) -> CommandResult:
+    cache = ctx.extras.setdefault("docker_commands", {})
+    if command not in cache:
+        try:
+            cache[command] = ctx.command(command, allow_empty=allow_empty)
+        except CheckNotEvaluableError as exc:
+            error = str(exc.evidence.get("stderr", "")).lower()
+            status = (
+                "tool_missing"
+                if exc.evidence.get("exit_code") == 127
+                else "permission_denied"
+                if "permission denied" in error
+                else "daemon_unavailable"
+                if "cannot connect" in error or "is the docker daemon" in error
+                else "command_inconclusive"
+            )
+            raise CheckNotEvaluableError(
+                "Docker: " + status, dict(exc.evidence, docker_status=status)
+            ) from exc
+    return cache[command]  # type: ignore[no-any-return]
 
 
 def _docker_json(ctx: CheckContext, command: str) -> Any:
-    result = ctx.command(command)
+    result = _docker_command(ctx, command)
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError as exc:
@@ -51,7 +74,7 @@ class DockerContainersCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.command("docker ps -a --format '{{json .}}'", allow_empty=True)
+        result = _docker_command(ctx, "docker ps -a --format '{{json .}}'", allow_empty=True)
         containers = []
         for line in result.stdout.splitlines():
             if not line.strip():
@@ -118,7 +141,9 @@ class DockerResourcesCheck(BaseCheck):
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
         stats_fmt = "{{.Name}}\t{{.CPUPerc}}\t{{.MemPerc}}\t{{.MemUsage}}"
-        result = ctx.command(f"docker stats --no-stream --format '{stats_fmt}'", allow_empty=True)
+        result = _docker_command(
+            ctx, f"docker stats --no-stream --format '{stats_fmt}'", allow_empty=True
+        )
         findings: list[Finding] = []
         for line in result.stdout.splitlines():
             parts = line.split("\t")
@@ -150,7 +175,7 @@ class DockerResourcesCheck(BaseCheck):
                 )
             )
         if not findings:
-            running = ctx.command("docker ps -q", allow_empty=True)
+            running = _docker_command(ctx, "docker ps -q", allow_empty=True)
             if running.output:
                 raise CheckNotEvaluableError("docker stats sin datos para contenedores activos")
             findings.append(
@@ -173,7 +198,7 @@ class DockerSecurityCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.command("docker ps -q", allow_empty=True)
+        result = _docker_command(ctx, "docker ps -q", allow_empty=True)
         ids = [x.strip() for x in result.stdout.splitlines() if x.strip()]
         findings: list[Finding] = []
         if any(not re.fullmatch(r"[a-fA-F0-9]{12,64}", identifier) for identifier in ids):
@@ -187,9 +212,31 @@ class DockerSecurityCheck(BaseCheck):
                 )
             ]
 
-        data = _docker_json(ctx, f"docker inspect {' '.join(ids)}")
-        if not isinstance(data, list) or len(data) != len(ids):
-            raise CheckNotEvaluableError("Respuesta de docker inspect incompleta")
+        inspect_format = (
+            "{{json .Name}}|{{json .Config.User}}|"
+            "{{if .Config.Healthcheck}}{{json (index .Config.Healthcheck.Test 0)}}"
+            "{{else}}null{{end}}|"
+            "{{json .HostConfig.Privileged}}|{{json .HostConfig.RestartPolicy}}|"
+            "{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}}"
+        )
+        raw = _docker_command(ctx, f"docker inspect --format '{inspect_format}' {' '.join(ids)}")
+        data = []
+        for line in raw.output.splitlines():
+            try:
+                parts = line.split("|")
+                if len(parts) != 6:
+                    raise ValueError("inspect incompleto")
+                name, user, mode, privileged, restart, health = map(json.loads, parts)
+                data.append(
+                    {
+                        "Name": name,
+                        "Config": {"User": user, "Healthcheck": mode in {"CMD", "CMD-SHELL"}},
+                        "HostConfig": {"Privileged": privileged, "RestartPolicy": restart},
+                        "State": {"Health": {"Status": health} if health is not None else None},
+                    }
+                )
+            except (ValueError, TypeError):
+                data.append({})
 
         for item in data:
             if (
@@ -215,6 +262,7 @@ class DockerSecurityCheck(BaseCheck):
                     self.finding(
                         severity=Severity.CRITICAL,
                         target=f"{ctx.host.id}:{name}",
+                        rule_id="privileged",
                         message=f"Container privileged: {name}",
                         recommendation="Evitar --privileged; usar capabilities mínimas",
                         evidence={"privileged": True},
@@ -225,6 +273,7 @@ class DockerSecurityCheck(BaseCheck):
                     self.finding(
                         severity=Severity.MEDIUM,
                         target=f"{ctx.host.id}:{name}",
+                        rule_id="root",
                         message=f"Container ejecutándose como root: {name}",
                         recommendation="Definir USER no-root en la imagen",
                         evidence={"user": user or "root(default)"},
@@ -235,6 +284,7 @@ class DockerSecurityCheck(BaseCheck):
                     self.finding(
                         severity=Severity.LOW,
                         target=f"{ctx.host.id}:{name}",
+                        rule_id="restart_policy",
                         message=f"Sin restart policy: {name}",
                         recommendation=(
                             "Configurar unless-stopped o on-failure para workloads críticos"
@@ -247,6 +297,7 @@ class DockerSecurityCheck(BaseCheck):
                     self.finding(
                         severity=Severity.LOW,
                         target=f"{ctx.host.id}:{name}",
+                        rule_id="healthcheck",
                         message=f"Sin HEALTHCHECK definido: {name}",
                         recommendation="Agregar HEALTHCHECK en Dockerfile o compose",
                         evidence={"healthcheck": None},
@@ -257,6 +308,7 @@ class DockerSecurityCheck(BaseCheck):
                     self.finding(
                         severity=Severity.HIGH,
                         target=f"{ctx.host.id}:{name}",
+                        rule_id="unhealthy",
                         message=f"Health status unhealthy: {name}",
                         recommendation="Revisar probes y logs del container",
                         evidence={"health": health},
@@ -267,6 +319,7 @@ class DockerSecurityCheck(BaseCheck):
                     self.finding(
                         severity=Severity.INFO,
                         target=f"{ctx.host.id}:{name}",
+                        rule_id="health_status",
                         message=f"Health status {name}: {health or 'N/A'} (restart={restart})",
                         evidence={
                             "health": health,
@@ -276,6 +329,11 @@ class DockerSecurityCheck(BaseCheck):
                         },
                     )
                 )
+        if len(data) != len(ids):
+            raise CheckNotEvaluableError(
+                "Respuesta de docker inspect incompleta", findings=findings
+            )
+
         return findings
 
 
@@ -287,8 +345,8 @@ class DockerNetworksCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.command(
-            "docker network ls --format '{{.Name}}\t{{.Driver}}\t{{.Scope}}'", allow_empty=True
+        result = _docker_command(
+            ctx, "docker network ls --format '{{.Name}}\t{{.Driver}}\t{{.Scope}}'", allow_empty=True
         )
         networks = [ln for ln in result.stdout.splitlines() if ln.strip()]
         if any(len(line.split("\t")) != 3 for line in networks):
@@ -312,7 +370,9 @@ class DockerVolumesCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        result = ctx.command("docker volume ls --format '{{.Name}}\t{{.Driver}}'", allow_empty=True)
+        result = _docker_command(
+            ctx, "docker volume ls --format '{{.Name}}\t{{.Driver}}'", allow_empty=True
+        )
         volumes = [ln for ln in result.stdout.splitlines() if ln.strip()]
         if any(len(line.split("\t")) != 2 for line in volumes):
             raise CheckNotEvaluableError("Fila de volúmenes Docker incompleta")

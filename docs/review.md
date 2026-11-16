@@ -1,75 +1,37 @@
-# Evaluación de publicación y funcionamiento
+# Evaluación vigente de InfraAudit — 16/11/2026
 
-Revisión: 5 de noviembre de 2026.
+Versión1.1.0 beta. La arquitectura separa configuración, transporte, checks,
+motor y reportes. Las mejoras05 a15 del informe original están implementadas;
+cada una dispone de su documento MEJORA-XX y de evidencia de validación en
+[VALIDACION-05-15.md](VALIDACION-05-15.md).
 
-## Conveniencia
+Se incorporan mediciones CPU por intervalo, NTP conservador, consultas Docker
+selectivas, DNS tipado, confianza y redirecciones HTTP/TLS, políticas de salida,
+preflight, filtros/plan, concurrencia y cancelación, reportes atómicos comparables
+y dependencias fijadas con hashes. Se conservan los estados independientes de
+salud/ejecución y las medidas de confidencialidad previas.
 
-Conviene publicar InfraAudit como beta: la separación entre inventario, checks,
-motor y reportes permite reutilizarlo y ampliar los diagnósticos. La licencia MIT
-ya incluida habilita reutilización y contribuciones. El proyecto aporta una base
-para consultoría y health checks, pero necesita más validación en plataformas
-reales antes de presentarlo como una herramienta de producción consolidada.
+## Límites pendientes
 
-El número de versión existente es 1.0.0; el estado de madurez declarado es beta.
-La publicación del repositorio no implica una publicación en PyPI ni una release
-estable. Los ejemplos usan destinos ficticios o loopback y variables de entorno.
+- La deny-list SSH es una defensa parcial, no un sandbox de plugins. Usar permisos
+  mínimos y destinos autorizados; la herramienta no remedia infraestructura.
+- El timeout SSH limita la espera local y puede dejar el proceso remoto en curso.
+  La cancelación es cooperativa y espera operaciones activas con sus timeouts.
+- Las pruebas Docker de protocolo son controladas; la imagen real se prueba en
+  CI. No se certifica el comportamiento de todas las versiones del daemon.
+- Reportes con identidades históricas ambiguas no pueden compararse de forma
+  fiable y se rechazan; los archivos anteriores siguen siendo legibles.
+- La redacción no anonimiza toda la evidencia. Datos arbitrarios que no estén
+  identificados como secretos pueden requerir revisión antes de compartirlos.
+- Los locks se orientan a Linux CPython3.12-3.14. Otros sistemas necesitan su
+  validación. Los plugins deben respetar el contrato de datos y ser seguros para
+  ejecución concurrente entre hosts.
+- No se carga .env automáticamente ni se incluye un scanner de vulnerabilidades,
+  remediación, validación DNSSEC o una política de publicación PyPI automática.
 
-## Correcciones incluidas en la publicación inicial
+## Compatibilidad
 
-- Error SSH o check fallido devuelve código 1 después de guardar evidencia.
-- Un formato de salida inválido se rechaza antes de abrir conexiones.
-- Variables requeridas sin definir impiden usar un inventario incompleto.
-- Los hosts sin checks seleccionados no abren conexiones SSH.
-- SSH carga `known_hosts` y rechaza claves desconocidas o cambiadas.
-- DNS sin respuesta ya no se presenta como INFO saludable; un nameserver
-  explícito también se respeta para A y AAAA.
-- TCP usa `create_connection`, compatible con resolución IPv4/IPv6, y captura
-  errores de conexión y de creación del socket.
-- URLs del paquete, documentación e instrucciones de agentes apuntan al repositorio.
-- CI con permisos de lectura y matriz Python 3.12, 3.13 y 3.14.
-
-## Validación ejecutada
-
-Sobre Linux con Python 3.14.4, usando un entorno virtual creado en este sistema:
-
-- 31 pruebas de pytest aprobadas.
-- Ruff sin errores y Mypy sin problemas en 23 archivos fuente.
-- Construcción de sdist y wheel; wheel construido desde el sdist.
-- CLI: `version`, `list-checks` y `validate` ejecutados correctamente.
-- Auditoría real de un servidor HTTP/TCP temporal en loopback: dos checks
-  exitosos, findings INFO y código 0.
-- Exportación JSON, HTML y Markdown verificada.
-- Repetición con el servidor apagado: hallazgos CRITICAL y código 2.
-- Casos SSH y Docker verificados mediante mocks; no se auditó infraestructura
-  real ni se ejecutó una imagen Docker durante esta revisión.
-
-Las pruebas de CI en GitHub complementan esta revisión local con las versiones
-Python declaradas. El estado actual se consulta en la pestaña Actions.
-
-## Límites y trabajo siguiente
-
-1. La deny-list SSH es una defensa parcial; no garantiza aislamiento frente a
-   plugins arbitrarios. Usar cuentas y permisos mínimos en destinos autorizados.
-2. La mejora 01 incorpora estados y cobertura para evitar resultados saludables
-   ante fuentes fallidas o insuficientes. Ver MEJORA-01-ESTADOS-Y-COBERTURA.md.
-   Los plugins externos deben adoptar el contrato de evidencia.
-3. El transporte SSH ahora drena stdout/stderr con plazo total por comando y
-   límite compartido de evidencia. Ver MEJORA-02-TRANSPORTE-SSH.md. El proceso
-   remoto puede continuar tras cerrar el canal: el timeout limita la espera local.
-4. La CPU se estima desde contadores acumulados y no mide utilización instantánea.
-   NTP requiere revisar la interpretación de sincronización y sus fuentes.
-5. DNS CNAME/MX/TXT y cualquier consulta a nameserver explícito requieren `dig`.
-   Los errores de resolución se informan como ausencia de respuesta; aún no se
-   distinguen NXDOMAIN, timeout y falta de la utilidad.
-6. Un reporte puede contener nombres, direcciones y evidencia sensible. Guardarlo
-   fuera de Git y revisar su contenido antes de compartirlo.
-7. No se carga `.env` automáticamente. Las variables deben exportarse en el shell.
-8. Los códigos de salida informan auditoría incompleta o CRITICAL; HIGH/MEDIUM/LOW
-   por sí solos no causan fallo. El código 2 también corresponde a argumentos CLI
-   inválidos; consultar stderr para distinguirlos.
-9. Faltan validación Docker end-to-end, pruebas SSH con servidores reales
-   autorizados y una política de versiones/dependencias reproducibles.
-
-Prioridad siguiente: evitar falsos saludables por falta de datos, robustecer el
-transporte SSH y ampliar cobertura de Docker/HTTP/TLS. Ver la CI antes de adoptar
-un commit para uso operativo.
+El esquema JSON nuevo es3.0 e incluye fingerprint e identidad de hallazgos.
+Las opciones anteriores y los reportes legacy se conservan. Cambian deliberadamente
+los diagnósticos basados antes en datos acumulados o ambiguos; revisar las reglas
+y cobertura al comparar contra auditorías previas. Ver CHANGELOG.md.

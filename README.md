@@ -107,6 +107,31 @@ Documentación detallada:
 - [Mejora 04: validación estricta](docs/MEJORA-04-VALIDACION-ESTRICTA.md)
 - [Transporte SSH: plazos y evidencia acotada](docs/MEJORA-02-TRANSPORTE-SSH.md)
 
+## Mejoras 05 a15 (1.1.0 beta)
+
+- [Mejora 05: CPU y sincronización NTP](docs/MEJORA-05-CPU-Y-NTP.md)
+- [Mejora 06: Diagnósticos Docker confiables](docs/MEJORA-06-DOCKER.md)
+- [Mejora 07: HTTP y TLS coherentes](docs/MEJORA-07-HTTP-TLS.md)
+- [Mejora 08: Resolución DNS tipada y acotada](docs/MEJORA-08-DNS.md)
+- [Mejora 09: Ampliación de pruebas de integración](docs/MEJORA-09-INTEGRACION.md)
+- [Mejora 10: Políticas de salida para automatización](docs/MEJORA-10-POLITICAS-DE-SALIDA.md)
+- [Mejora 11: Diagnóstico previo](docs/MEJORA-11-DOCTOR.md)
+- [Mejora 12: Filtros y vista previa](docs/MEJORA-12-FILTROS-Y-PLAN.md)
+- [Mejora 13: Concurrencia, progreso y cancelación](docs/MEJORA-13-CONCURRENCIA.md)
+- [Mejora 14: Reportes trazables y comparación](docs/MEJORA-14-REPORTES-Y-DIFF.md)
+- [Mejora 15: Versiones y distribución reproducible](docs/MEJORA-15-DISTRIBUCION.md)
+
+```bash
+infraaudit doctor inventory.yml
+infraaudit run inventory.yml --tag web --check linux.cpu --dry-run
+infraaudit run inventory.yml --workers 4 --fail-on high --summary-json
+infraaudit diff previous.json current.json
+```
+
+La instalación reproducible usa `pip install --require-hashes -r requirements-dev.lock`
+y `pip install --no-deps --no-build-isolation -e .`. Ver CHANGELOG.md y los límites
+de plataforma en la mejora15.
+
 ## Docker
 
 ```bash

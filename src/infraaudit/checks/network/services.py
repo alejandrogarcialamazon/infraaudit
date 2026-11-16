@@ -8,6 +8,8 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+import dns.exception
+import dns.resolver
 import httpx
 
 from infraaudit.checks.base import BaseCheck, CheckContext, CheckNotEvaluableError
@@ -15,37 +17,47 @@ from infraaudit.config import DnsRecord, HttpService, TcpService
 from infraaudit.models import CheckCategory, Finding, FindingKind, Severity
 
 
-def _resolve_dns(name: str, record_type: str, nameserver: str | None = None) -> list[str]:
-    """Resolución DNS usando socket o dnspython-free approach."""
-    # Sin dependencia extra: A/AAAA vía getaddrinfo; CNAME/MX/TXT limitados.
-    if record_type in {"A", "AAAA"} and nameserver is None:
-        family = socket.AF_INET if record_type == "A" else socket.AF_INET6
-        try:
-            infos = socket.getaddrinfo(name, None, family, socket.SOCK_STREAM)
-        except socket.gaierror:
-            return []
-        values: list[str] = []
-        for info in infos:
-            addr = str(info[4][0])
-            if addr not in values:
-                values.append(addr)
-        return values
+class DnsQueryError(Exception):
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
 
-    # Fallback: dig si está disponible en el entorno local del auditor
-    import shutil
-    import subprocess
 
-    dig = shutil.which("dig")
-    if not dig:
-        return []
-    cmd = [dig, "+short", name, record_type]
-    if nameserver:
-        cmd.insert(1, f"@{nameserver}")
+def _normalize_dns(value: str, record_type: str) -> str:
+    if record_type in {"CNAME", "MX"}:
+        return value.rstrip(".").lower()
+    return value.rstrip(".") if record_type in {"A", "AAAA"} else value
+
+
+def _resolve_dns(
+    name: str, record_type: str, nameserver: str | None = None, timeout: float = 5.0, port: int = 53
+) -> list[str]:
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
-    except (OSError, subprocess.TimeoutExpired):
-        return []
-    return [ln.strip().rstrip(".") for ln in proc.stdout.splitlines() if ln.strip()]
+        resolver = dns.resolver.Resolver(configure=nameserver is None)
+        if nameserver:
+            resolver.nameservers = [nameserver]
+        resolver.port = port
+        resolver.timeout = min(timeout, 2)
+        resolver.lifetime = timeout
+        answer = resolver.resolve(name, record_type, lifetime=timeout, search=False)
+        return sorted(
+            {
+                b"".join(row.strings).decode("utf-8", errors="replace")
+                if record_type == "TXT"
+                else _normalize_dns(row.to_text(), record_type)
+                for row in answer
+            }
+        )
+    except dns.resolver.NXDOMAIN as exc:
+        raise DnsQueryError("nxdomain") from exc
+    except dns.resolver.NoAnswer as exc:
+        raise DnsQueryError("no_answer") from exc
+    except dns.exception.Timeout as exc:
+        raise DnsQueryError("timeout") from exc
+    except dns.resolver.NoNameservers as exc:
+        raise DnsQueryError("no_nameservers") from exc
+    except (dns.exception.DNSException, OSError, ValueError) as exc:
+        raise DnsQueryError("resolver_error") from exc
 
 
 class DnsCheck(BaseCheck):
@@ -56,8 +68,24 @@ class DnsCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         record: DnsRecord = ctx.extras["dns_record"]
-        actual = _resolve_dns(record.name, record.record_type, record.nameserver)
-        expected = [v.rstrip(".") for v in record.expected]
+        expected = [_normalize_dns(value, record.record_type) for value in record.expected]
+        try:
+            actual = _resolve_dns(
+                record.name, record.record_type, record.nameserver, record.timeout, record.port
+            )
+        except DnsQueryError as exc:
+            if exc.code in {"nxdomain", "no_answer"}:
+                return [
+                    self.finding(
+                        severity=Severity.HIGH,
+                        target=record.id,
+                        message=f"DNS {record.name}: {exc.code}",
+                        evidence={"dns_status": exc.code, "expected": expected},
+                    )
+                ]
+            raise CheckNotEvaluableError(
+                "Consulta DNS inconclusa: " + exc.code, {"dns_status": exc.code}
+            ) from exc
         if not actual:
             raise CheckNotEvaluableError(
                 f"Sin evidencia DNS para {record.name} ({record.record_type})",
@@ -142,8 +170,10 @@ class TcpPortCheck(BaseCheck):
             ]
 
 
-def _tls_info(hostname: str, port: int = 443, timeout: float = 10.0) -> dict[str, Any]:
-    context = ssl.create_default_context()
+def _tls_info(
+    hostname: str, port: int = 443, timeout: float = 10.0, ca_bundle: str | None = None
+) -> dict[str, Any]:
+    context = ssl.create_default_context(cafile=ca_bundle)
     with (
         socket.create_connection((hostname, port), timeout=timeout) as sock,
         context.wrap_socket(sock, server_hostname=hostname) as ssock,
@@ -215,13 +245,17 @@ class HttpCheck(BaseCheck):
         try:
             with httpx.Client(
                 timeout=service.timeout,
-                verify=service.verify_tls,
-                follow_redirects=True,
+                verify=(
+                    ssl.create_default_context(cafile=service.ca_bundle)
+                    if service.ca_bundle and service.verify_tls
+                    else service.verify_tls
+                ),
+                follow_redirects=service.follow_redirects,
                 headers=service.headers,
             ) as client:
                 response = client.request(service.method, service.url)
             elapsed_ms = (time.perf_counter() - started) * 1000
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, OSError, ValueError) as exc:
             cert_error = _certificate_error(exc)
             if cert_error is not None:
                 findings.append(
@@ -281,12 +315,46 @@ class HttpCheck(BaseCheck):
                 )
             )
 
-        if service.url.lower().startswith("https://"):
-            parsed_host = httpx.URL(service.url).host
-            port = httpx.URL(service.url).port or 443
+        if not service.verify_tls and service.url.startswith("https://"):
+            findings.append(
+                self.finding(
+                    severity=Severity.MEDIUM,
+                    kind=FindingKind.SECURITY,
+                    target=service.id,
+                    message="Verificación TLS deshabilitada por configuración",
+                )
+            )
+        final_url = getattr(response, "url", None)
+        endpoint = final_url if isinstance(final_url, httpx.URL) else httpx.URL(service.url)
+        if service.url.startswith("https://") and endpoint.scheme == "http":
+            findings.append(
+                self.finding(
+                    severity=Severity.HIGH,
+                    kind=FindingKind.SECURITY,
+                    target=service.id,
+                    rule_id="tls_downgrade",
+                    message="Redirección HTTPS a HTTP",
+                    evidence={"final_url": str(endpoint)},
+                )
+            )
+        if endpoint.scheme == "https" and not service.inspect_tls:
+            findings.append(
+                self.finding(
+                    severity=Severity.INFO,
+                    kind=FindingKind.SECURITY,
+                    target=service.id,
+                    rule_id="tls_inspection_skipped",
+                    message="Inspección adicional TLS omitida por configuración",
+                )
+            )
+        if endpoint.scheme == "https" and service.inspect_tls and service.verify_tls:
+            parsed_host = endpoint.host
+            port = endpoint.port or 443
             if parsed_host:
                 try:
-                    tls = _tls_info(parsed_host, port, timeout=service.timeout)
+                    tls = _tls_info(
+                        parsed_host, port, timeout=service.timeout, ca_bundle=service.ca_bundle
+                    )
                 except OSError as exc:
                     if isinstance(exc, ssl.SSLCertVerificationError):
                         findings.append(
@@ -309,7 +377,7 @@ class HttpCheck(BaseCheck):
                     if days <= thr.tls_crit_days:
                         sev = Severity.CRITICAL
                         rec = "Renovar certificado TLS inmediatamente"
-                    elif days <= thr.tls_warn_days:
+                    elif days <= (service.min_days_to_expiry or thr.tls_warn_days):
                         sev = Severity.HIGH
                         rec = "Planificar renovación del certificado TLS"
                     else:

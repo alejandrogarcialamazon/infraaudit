@@ -63,13 +63,16 @@ def test_dns_custom_nameserver_is_used(monkeypatch) -> None:  # type: ignore[no-
 
     from infraaudit.checks.network.services import _resolve_dns
 
-    monkeypatch.setattr("shutil.which", lambda _: "/usr/bin/dig")
-    commands = []
+    seen = []
 
-    def run(cmd, **kwargs):
-        commands.append(cmd)
-        return SimpleNamespace(stdout="203.0.113.10\n")
+    class Resolver:
+        def __init__(self, configure=True):
+            assert not configure
 
-    monkeypatch.setattr("subprocess.run", run)
-    assert _resolve_dns("example.com", "A", "192.0.2.53") == ["203.0.113.10"]
-    assert "@192.0.2.53" in commands[0]
+        def resolve(self, name, record_type, **kwargs):
+            seen.append((self.nameservers, self.port, self.lifetime))
+            return [SimpleNamespace(to_text=lambda: "203.0.113.10")]
+
+    monkeypatch.setattr("dns.resolver.Resolver", Resolver)
+    assert _resolve_dns("example.com", "A", "192.0.2.53", 2, 5353) == ["203.0.113.10"]
+    assert seen == [(["192.0.2.53"], 5353, 2)]

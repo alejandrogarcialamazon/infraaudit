@@ -34,11 +34,28 @@ def test_unexpected_plugin_error_is_diagnostic_not_security() -> None:
     assert report_with(result).summary()["by_severity"]["HIGH"] == 0
 
 
+def inspect_lines(payload):
+    return "\n".join(
+        "|".join(
+            json.dumps(value)
+            for value in (
+                item.get("Name"),
+                item.get("Config", {}).get("User"),
+                "CMD" if item.get("Config", {}).get("Healthcheck") else None,
+                item.get("HostConfig", {}).get("Privileged"),
+                item.get("HostConfig", {}).get("RestartPolicy"),
+                (item.get("State", {}).get("Health") or {}).get("Status"),
+            )
+        )
+        for item in payload
+    )
+
+
 def docker_context(payload: object) -> CheckContext:
     ctx = context(CommandResult("probe", 0, "abcdef123456\n", ""))
     ctx.ssh.run.side_effect = [
         CommandResult("ps", 0, "abcdef123456\n", ""),
-        CommandResult("inspect", 0, json.dumps(payload), ""),
+        CommandResult("inspect", 0, inspect_lines(payload), ""),
     ]
     return ctx
 
@@ -98,7 +115,9 @@ def mock_http(monkeypatch: pytest.MonkeyPatch, *, error=None, status=200) -> Non
     if error is not None:
         client.request.side_effect = error
     else:
-        client.request.return_value = httpx.Response(status)
+        client.request.side_effect = lambda method, url: httpx.Response(
+            status, request=httpx.Request(method, url)
+        )
     monkeypatch.setattr("infraaudit.checks.network.services.httpx.Client", lambda **kw: client)
 
 
@@ -261,7 +280,7 @@ def test_docker_partial_findings_survive_missing_fields() -> None:
     }
     ctx.ssh.run.side_effect = [
         CommandResult("ps", 0, "abcdef123456\nabcdef123457\n", ""),
-        CommandResult("inspect", 0, json.dumps([first, {"Name": "/unknown"}]), ""),
+        CommandResult("inspect", 0, inspect_lines([first, {"Name": "/unknown"}]), ""),
     ]
     result = DockerSecurityCheck().run(ctx)
     assert result.assessment == Assessment.INCONCLUSIVE

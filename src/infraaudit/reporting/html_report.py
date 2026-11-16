@@ -115,7 +115,9 @@ class HtmlReporter(BaseReporter):
   <p class="meta">
     Inventory: <code>{_esc(report.inventory_path)}</code><br/>
     Started: {_esc(report.started_at.isoformat())} · Finished: {_esc(finished)} ·
-    Version: {_esc(report.tool_version)}
+    Version: {_esc(report.tool_version)} · Schema: {_esc(report.schema_version)}<br/>
+    Fingerprint: <code>{_esc(report.inventory_fingerprint)}</code> ·
+    Workers: {report.execution_workers} · Cancelled: {report.cancelled}
   </p>
   <div class="grid">{severity_cards}</div>
   <section>

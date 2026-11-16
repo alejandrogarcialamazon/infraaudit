@@ -158,3 +158,20 @@ límite combinado de captura stdout/stderr mediante max_output_bytes. Una salida
 truncada o timeout produce diagnóstico inconcluso. Ver los documentos específicos
 MEJORA-03-PROTECCION-DE-SECRETOS.md, MEJORA-04-VALIDACION-ESTRICTA.md y
 MEJORA-02-TRANSPORTE-SSH.md.
+
+## 16. Mejoras 05 a 15 — versión 1.1.0
+
+Los documentos MEJORA-05 a MEJORA-15 describen CPU/NTP, Docker, HTTP/TLS, DNS,
+integraciones, políticas, doctor, filtros, concurrencia, reportes y distribución.
+Consultar VALIDACION-05-15.md para pruebas y límites. Comandos nuevos:
+
+```bash
+infraaudit doctor inventory.yml
+infraaudit run inventory.yml --check linux.cpu --dry-run
+infraaudit run inventory.yml --workers 4 --fail-on high --summary-json
+infraaudit diff previous.json current.json
+```
+
+Los filtros --host/--tag se aplican a destinos SSH y excluyen servicios de red
+independientes. CTRL+C guarda evidencia parcial y devuelve130. --incomplete allow
+acepta cobertura parcial explícitamente; nunca convierte una cancelación en éxito.

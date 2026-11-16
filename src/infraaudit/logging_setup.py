@@ -8,6 +8,12 @@ import sys
 from infraaudit.security import redact_text
 
 
+class CurrentStderrHandler(logging.StreamHandler):  # type: ignore[type-arg]
+    def emit(self, record: logging.LogRecord) -> None:
+        self.stream = sys.stderr
+        super().emit(record)
+
+
 class RedactingFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         return redact_text(super().format(record))
@@ -22,7 +28,7 @@ def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     else:
         level = logging.INFO
 
-    handler = logging.StreamHandler(sys.stderr)
+    handler = CurrentStderrHandler()
     handler.setFormatter(
         RedactingFormatter(
             fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",

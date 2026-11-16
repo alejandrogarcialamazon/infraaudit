@@ -12,10 +12,13 @@ from rich.console import Console
 from rich.table import Table
 
 from infraaudit import __version__
+from infraaudit.comparison import compare_reports
 from infraaudit.config import InventoryError, validate_inventory_file
+from infraaudit.diagnostics import doctor
 from infraaudit.engine import AuditEngine
 from infraaudit.logging_setup import setup_logging
 from infraaudit.models import AuditReport, CheckCategory
+from infraaudit.policy import exit_code
 from infraaudit.reporting import get_reporter, write_report
 
 app = typer.Typer(
@@ -108,15 +111,43 @@ def run_cmd(
         str,
         typer.Option("--format", "-f", help="También exportar md/html además del JSON"),
     ] = "json",
+    host: Annotated[list[str] | None, typer.Option("--host", help="Host ID (repetible)")] = None,
+    tag: Annotated[list[str] | None, typer.Option("--tag", help="Etiqueta de host (OR)")] = None,
+    check: Annotated[list[str] | None, typer.Option("--check", help="Check ID (repetible)")] = None,
+    workers: Annotated[int, typer.Option("--workers", min=1, max=32)] = 1,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Mostrar plan sin conectar")] = False,
+    fail_on: Annotated[
+        str, typer.Option("--fail-on", help="info|low|medium|high|critical|none")
+    ] = "critical",
+    incomplete: Annotated[str, typer.Option("--incomplete", help="fail|allow")] = "fail",
+    summary_json: Annotated[bool, typer.Option("--summary-json")] = False,
+    progress: Annotated[bool, typer.Option("--progress/--no-progress")] = True,
 ) -> None:
     """Ejecuta la auditoría (solo lectura) y genera resultados."""
     categories = _parse_only(only)
+    if fail_on.lower() not in {"info", "low", "medium", "high", "critical", "none"}:
+        raise typer.BadParameter("Severidad inválida", param_hint="--fail-on")
+    if incomplete not in {"fail", "allow"}:
+        raise typer.BadParameter("Use fail o allow", param_hint="--incomplete")
     try:
         get_reporter(format)
     except ValueError as exc:
         raise typer.BadParameter(str(exc), param_hint="--format") from exc
     try:
-        engine = AuditEngine.from_path(inventory, only=categories)
+
+        def on_progress(done: int, total: int) -> None:
+            if progress:
+                console.print(f"Progreso: {done}/{total}")
+
+        engine = AuditEngine.from_path(
+            inventory,
+            only=categories,
+            host_ids=host,
+            tags=tag,
+            check_ids=check,
+            workers=workers,
+            progress=on_progress,
+        )
     except InventoryError as exc:
         console.print(f"[red]Inventario inválido:[/red] {exc}")
         raise typer.Exit(code=1) from exc
@@ -124,6 +155,9 @@ def run_cmd(
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(code=1) from exc
 
+    if dry_run:
+        typer.echo(json.dumps(engine.plan(), ensure_ascii=False))
+        return
     console.print(f"Iniciando auditoría con inventario [cyan]{inventory}[/cyan] ...")
     report = engine.run(inventory_path=str(inventory))
 
@@ -145,11 +179,11 @@ def run_cmd(
         f"security_failed={summary['security_failed_checks']} "
         f"inconclusive={summary['inconclusive_checks']}"
     )
-    # Un informe incompleto nunca debe pasar como auditoría saludable.
-    if not summary["complete"]:
-        raise typer.Exit(code=1)
-    if summary["by_severity"].get("CRITICAL", 0) > 0:
-        raise typer.Exit(code=2)
+    if summary_json:
+        typer.echo(json.dumps(summary, ensure_ascii=False))
+    code = exit_code(report, fail_on.lower(), incomplete)
+    if code:
+        raise typer.Exit(code=code)
 
 
 @app.command("report")
@@ -174,7 +208,7 @@ def report_cmd(
         payload.setdefault("schema_version", "1.0")
         report = AuditReport.model_validate(payload)
     except Exception as exc:
-        console.print(f"[red]No se pudo leer results:[/red] {exc}")
+        console.print("[red]No se pudo leer results: JSON o esquema inválido[/red]")
         raise typer.Exit(code=1) from exc
 
     try:
@@ -187,12 +221,12 @@ def report_cmd(
     if output is None:
         if format.lower() == "html":
             default = results.with_suffix(".html")
-            default.write_text(rendered, encoding="utf-8")
+            reporter.write(report, default)
             console.print(f"Escrito: [green]{default}[/green]")
         else:
             sys.stdout.write(rendered)
     else:
-        output.write_text(rendered, encoding="utf-8")
+        reporter.write(report, output)
         console.print(f"Escrito: [green]{output}[/green]")
 
 
@@ -209,6 +243,37 @@ def list_checks_cmd() -> None:
     for check in registry.all():
         table.add_row(check.check_id, check.category.value, check.description)
     console.print(table)
+
+
+@app.command("doctor")
+def doctor_cmd(
+    inventory: Annotated[Path | None, typer.Argument()] = None,
+    probe: Annotated[bool, typer.Option("--probe", help="Probar SSH explícitamente")] = False,
+) -> None:
+    try:
+        data = validate_inventory_file(inventory) if inventory else None
+        result = doctor(data, probe=probe)
+    except (InventoryError, OSError) as exc:
+        console.print(f"[red]Preflight inválido: {exc}[/red]")
+        raise typer.Exit(1) from exc
+    typer.echo(json.dumps(result, ensure_ascii=False))
+    if not result["ready"]:
+        raise typer.Exit(1)
+
+
+@app.command("diff")
+def diff_cmd(before: Path, after: Path) -> None:
+    try:
+        reports = []
+        for path in (before, after):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload.setdefault("schema_version", "1.0")
+            reports.append(AuditReport.model_validate(payload))
+        result = compare_reports(reports[0], reports[1])
+    except (OSError, ValueError):
+        console.print("[red]Reportes inválidos o identidades ambiguas[/red]")
+        raise typer.Exit(1) from None
+    typer.echo(json.dumps(result, ensure_ascii=False))
 
 
 if __name__ == "__main__":

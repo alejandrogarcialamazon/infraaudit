@@ -51,7 +51,7 @@ class CheckContext:
         self.host = host
         self.ssh = ssh
         self.target = target
-        self.extras = extras or {}
+        self.extras = extras if extras is not None else {}
 
     def command(self, command: str, *, allow_empty: bool = False) -> CommandResult:
         if self.ssh is None:
@@ -160,10 +160,12 @@ class BaseCheck(ABC):
         recommendation: str = "",
         evidence: dict[str, Any] | None = None,
         kind: FindingKind | None = None,
+        rule_id: str = "",
     ) -> Finding:
         return Finding(
             severity=severity,
             kind=kind or self.finding_kind,
+            rule_id=rule_id,
             check=self.check_id,
             target=target,
             message=message,

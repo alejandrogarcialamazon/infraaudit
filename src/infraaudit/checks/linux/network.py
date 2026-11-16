@@ -76,27 +76,41 @@ class NtpCheck(BaseCheck):
 
     def execute(self, ctx: CheckContext) -> list[Finding]:
         assert ctx.ssh is not None and ctx.host is not None
-        timedate = ctx.ssh.run("timedatectl status 2>/dev/null")
+        timedate = ctx.ssh.run("LC_ALL=C timedatectl show -p NTPSynchronized --value 2>/dev/null")
         chronyc = ctx.ssh.run("chronyc tracking 2>/dev/null")
         if not ((timedate.ok and timedate.output) or (chronyc.ok and chronyc.output)):
             raise CheckNotEvaluableError("No se pudo consultar ninguna fuente NTP")
-        synced = False
-        evidence: dict[str, str] = {
-            "timedatectl": timedate.stdout.strip(),
-            "chronyc": chronyc.stdout.strip(),
-        }
-        text = (
-            (timedate.stdout if timedate.ok else "") + "\n" + (chronyc.stdout if chronyc.ok else "")
-        ).lower()
-        if "system clock synchronized:" not in text and "leap status" not in text:
+        evidence = {"timedatectl": timedate.output, "chronyc": chronyc.output}
+        states: list[bool] = []
+        if timedate.ok:
+            if timedate.output.lower() in {"yes", "no"}:
+                states.append(timedate.output.lower() == "yes")
+            for line in timedate.output.lower().splitlines():
+                if "system clock synchronized:" in line:
+                    answer = line.split(":")[-1].strip()
+                    if answer in {"yes", "no"}:
+                        states.append(answer == "yes")
+        if chronyc.ok:
+            for line in chronyc.output.lower().splitlines():
+                if "leap status" in line:
+                    answer = line.split(":")[-1].strip()
+                    if answer in {"normal", "not synchronised", "not synchronized"}:
+                        if answer != "normal":
+                            states.append(False)
+                        else:
+                            stratum = next(
+                                (
+                                    row.split(":")[-1].strip()
+                                    for row in chronyc.output.lower().splitlines()
+                                    if row.strip().startswith("stratum")
+                                ),
+                                "",
+                            )
+                            if stratum.isdigit():
+                                states.append(1 <= int(stratum) <= 15)
+        if not states:
             raise CheckNotEvaluableError("Las fuentes NTP no informaron sincronización", evidence)
-        if "system clock synchronized: yes" in text:
-            synced = True
-        if any(
-            "leap status" in line and line.split(":")[-1].strip() == "normal"
-            for line in text.splitlines()
-        ):
-            synced = True
+        synced = all(states)
         if synced:
             return [
                 self.finding(
@@ -152,6 +166,9 @@ class ListeningPortsCheck(BaseCheck):
                         self.finding(
                             severity=Severity.MEDIUM,
                             target=f"{ctx.host.id}:{port}",
+                            rule_id=(
+                                f"bind_{port}_{line.split()[0]}_" + ("v6" if "::" in line else "v4")
+                            ),
                             message=(f"Puerto sensible {port} expuesto en todas las interfaces"),
                             recommendation=("Restringir bind a interfaces internas o firewall"),
                             evidence={"line": line.strip()},
