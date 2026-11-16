@@ -18,7 +18,7 @@ python scripts/release_artifacts.py
 
 ## Validación
 
-Instalación limpia local validada con los hashes de los 48 paquetes del lock dev; wheel1.1.0 instalado y doctor/version correctos. Build de sdist y wheel. La imagen se valida en CI por no existir Docker local.
+Instalación limpia local validada con los hashes de los 49 paquetes del lock dev; wheel1.1.0 instalado y doctor/version correctos. Build de sdist y wheel. La imagen se valida en CI por no existir Docker local.
 
 Los resultados y el estado de publicación de la entrega completa constan en
 [VALIDACION-05-15.md](VALIDACION-05-15.md). Evidencia operativa privada en out,

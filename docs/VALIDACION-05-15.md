@@ -8,7 +8,7 @@ Versión: 1.1.0 beta. Publicación solicitada antes de las17:59 Buenos Aires.
 - Ruff sin errores y Mypy sin problemas en27 archivos fuente.
 - Cobertura general de la suite completa aproximadamente84%; no se presenta como
   validación exhaustiva de cada plataforma o versión de Docker.
-- Instalación en un venv limpio con --require-hashes:48 paquetes del lock dev,
+- Instalación en un venv limpio con --require-hashes:49 paquetes del lock dev,
   sin omitir la verificación de hashes. Wheel1.1.0 instalado sin depender del layout
   src; version y doctor ejecutados correctamente.
 - Build de sdist y wheel desde el sdist; herramientas de construcción fijadas.
@@ -51,3 +51,12 @@ PyPI ni se crean tags automáticamente; scripts/release_artifacts.py prepara los
 artefactos y sus SHA256SUMS para revisión.
 
 Fuentes técnicas: [dnspython Resolver](https://dnspython.readthedocs.io/en/stable/resolver-class.html).
+
+## Corrección detectada en CI
+
+La primera ejecución construyó y ejecutó correctamente el contenedor, pero la
+instalación editable de la matriz Python detectó que faltaba editables en el
+entorno sin aislamiento de build. Se añadió editables0.6 al build-system y al
+extra dev, con sus hashes oficiales en el lock. La instalación editable se repitió
+correctamente en el entorno limpio antes de volver a publicar la corrección.
+Los checks de auditoría y los datos de los reportes no cambiaron.
